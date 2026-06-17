@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "build": "esbuild game.js --bundle --format=iife --global-name=BananaStrike --outfile=game.bundle.js"
+  },
+  "dependencies": {
+    "three": "0.184.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}

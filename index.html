@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#14261b" />
+    <meta
+      name="description"
+      content="第一人称手机香蕉投掷小游戏，打开就能向猴子投香蕉。"
+    />
+    <title>香蕉突击</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="香蕉突击第一人称游戏">
+      <canvas
+        id="gameCanvas"
+        aria-label="第一人称香蕉投掷游戏画面"
+        role="img"
+      ></canvas>
+
+      <section class="hud hud-top" aria-label="本局状态">
+        <div class="stat stat-score">
+          <span>得分</span>
+          <strong id="scoreValue">0</strong>
+        </div>
+        <div class="stat">
+          <span>时间</span>
+          <strong id="timeValue">45</strong>
+        </div>
+        <div class="stat">
+          <span>连击</span>
+          <strong id="comboValue">x1</strong>
+        </div>
+        <button id="restartButton" class="small-button" type="button">重开</button>
+      </section>
+
+      <div class="reticle" aria-hidden="true">
+        <span></span>
+        <span></span>
+      </div>
+
+      <section class="hud hud-bottom" aria-label="投掷控制">
+        <div class="throw-status" aria-live="polite">
+          <span id="statusLabel">就绪</span>
+          <strong id="bestValue">最高 0</strong>
+        </div>
+        <button id="throwButton" class="throw-button" type="button" aria-label="投香蕉">
+          <span>投</span>
+        </button>
+      </section>
+
+      <section id="roundOverPanel" class="round-over" aria-live="polite" hidden>
+        <p>本局结束</p>
+        <h1 id="roundTitle">香蕉投手</h1>
+        <dl>
+          <div>
+            <dt>得分</dt>
+            <dd id="finalScore">0</dd>
+          </div>
+          <div>
+            <dt>最高</dt>
+            <dd id="finalBest">0</dd>
+          </div>
+          <div>
+            <dt>命中</dt>
+            <dd id="finalHits">0</dd>
+          </div>
+        </dl>
+        <button id="playAgainButton" type="button">再来一局</button>
+      </section>
+    </main>
+
+    <script src="./game.bundle.js" defer></script>
+  </body>
+</html>
