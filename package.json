@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "esbuild game.js --bundle --format=iife --global-name=BananaStrike --outfile=game.bundle.js"
+    "build": "esbuild game.js --bundle --format=iife --global-name=BananaStrike --outfile=game.bundle.js && node scripts/prepare-vercel-output.mjs"
   },
   "dependencies": {
     "three": "0.184.0"
