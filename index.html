@@ -32,6 +32,11 @@
           <span>连击</span>
           <strong id="comboValue">x1</strong>
         </div>
+        <div class="stat stat-health">
+          <span>血量</span>
+          <strong id="healthValue">5/5</strong>
+          <i id="healthMeter" aria-hidden="true"></i>
+        </div>
         <button id="restartButton" class="small-button" type="button">重开</button>
       </section>
 
@@ -42,12 +47,9 @@
 
       <section class="hud hud-bottom" aria-label="投掷控制">
         <div class="throw-status" aria-live="polite">
-          <span id="statusLabel">就绪</span>
+          <span id="statusLabel">按住拖动，松开发射</span>
           <strong id="bestValue">最高 0</strong>
         </div>
-        <button id="throwButton" class="throw-button" type="button" aria-label="投香蕉">
-          <span>投</span>
-        </button>
       </section>
 
       <section id="roundOverPanel" class="round-over" aria-live="polite" hidden>

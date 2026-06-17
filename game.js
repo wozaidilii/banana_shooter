@@ -4,6 +4,7 @@ const ROUND_SECONDS = 45;
 const CAMERA_Y = 1.45;
 const STORAGE_KEY = "bananaStrikeBest";
 const MAX_MONKEYS = 10;
+const MAX_HEALTH = 5;
 
 const canvas = document.querySelector("#gameCanvas");
 const shell = document.querySelector(".game-shell");
@@ -12,9 +13,11 @@ const els = {
   score: document.querySelector("#scoreValue"),
   time: document.querySelector("#timeValue"),
   combo: document.querySelector("#comboValue"),
+  health: document.querySelector("#healthValue"),
+  healthMeter: document.querySelector("#healthMeter"),
+  healthStat: document.querySelector(".stat-health"),
   best: document.querySelector("#bestValue"),
   status: document.querySelector("#statusLabel"),
-  throwButton: document.querySelector("#throwButton"),
   restartButton: document.querySelector("#restartButton"),
   panel: document.querySelector("#roundOverPanel"),
   roundTitle: document.querySelector("#roundTitle"),
@@ -55,10 +58,11 @@ const state = {
   best: readBest(),
   combo: 0,
   hits: 0,
+  health: MAX_HEALTH,
   timeLeft: ROUND_SECONDS,
   cooldown: 0,
   spawnTimer: 0,
-  statusText: "就绪",
+  statusText: "按住拖动，松开发射",
   statusTTL: 0,
   recoil: 0,
   shake: 0,
@@ -77,7 +81,6 @@ const input = {
   downX: 0,
   downY: 0,
   moved: 0,
-  downTime: 0,
   keys: new Set(),
 };
 
@@ -87,13 +90,19 @@ const materials = {
   trunk: new THREE.MeshStandardMaterial({ color: 0x3a2716, roughness: 0.86 }),
   leafDark: new THREE.MeshStandardMaterial({ color: 0x124822, roughness: 0.82 }),
   leafLight: new THREE.MeshStandardMaterial({ color: 0x2a7832, roughness: 0.78 }),
-  banana: new THREE.MeshStandardMaterial({ color: 0xffcf2c, roughness: 0.45, metalness: 0.02 }),
+  banana: new THREE.MeshStandardMaterial({ color: 0xffd636, roughness: 0.38, metalness: 0.01 }),
+  bananaHighlight: new THREE.MeshStandardMaterial({ color: 0xfff28d, roughness: 0.32, metalness: 0.02 }),
+  bananaShadow: new THREE.MeshStandardMaterial({ color: 0xca8a13, roughness: 0.55 }),
   bananaTip: new THREE.MeshStandardMaterial({ color: 0x3b2410, roughness: 0.8 }),
   skin: new THREE.MeshStandardMaterial({ color: 0xd28b54, roughness: 0.72 }),
   sleeve: new THREE.MeshStandardMaterial({ color: 0x244c28, roughness: 0.74 }),
   launcher: new THREE.MeshStandardMaterial({ color: 0x20382c, roughness: 0.48, metalness: 0.16 }),
   launcherBand: new THREE.MeshStandardMaterial({ color: 0xf5b531, roughness: 0.42, metalness: 0.04 }),
   hit: new THREE.MeshStandardMaterial({ color: 0xffde3a, roughness: 0.34, emissive: 0x6c4a00 }),
+  eyeWhite: new THREE.MeshStandardMaterial({ color: 0xfff8df, roughness: 0.5 }),
+  pupil: new THREE.MeshStandardMaterial({ color: 0x130d08, roughness: 0.35 }),
+  nose: new THREE.MeshStandardMaterial({ color: 0x21140c, roughness: 0.58 }),
+  cheek: new THREE.MeshStandardMaterial({ color: 0xf0a06f, roughness: 0.68 }),
 };
 
 const geometries = {
@@ -101,15 +110,39 @@ const geometries = {
   belly: new THREE.SphereGeometry(1, 24, 16),
   cylinder: new THREE.CylinderGeometry(1, 1, 1, 16),
   barrel: new THREE.CylinderGeometry(0.1, 0.13, 1, 20),
-  bananaArc: new THREE.TorusGeometry(0.26, 0.045, 10, 28, Math.PI * 1.18),
-  bananaTip: new THREE.SphereGeometry(0.055, 10, 8),
+  bananaBody: new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.34, -0.08, 0),
+      new THREE.Vector3(-0.16, 0.12, 0.01),
+      new THREE.Vector3(0.14, 0.1, 0),
+      new THREE.Vector3(0.34, -0.12, 0),
+    ]),
+    34,
+    0.06,
+    14,
+    false,
+  ),
+  bananaRidge: new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.26, -0.035, 0.055),
+      new THREE.Vector3(-0.1, 0.095, 0.06),
+      new THREE.Vector3(0.12, 0.075, 0.055),
+      new THREE.Vector3(0.27, -0.07, 0.052),
+    ]),
+    24,
+    0.012,
+    6,
+    false,
+  ),
+  bananaTip: new THREE.SphereGeometry(0.06, 12, 8),
+  bananaStem: new THREE.CylinderGeometry(0.026, 0.04, 0.16, 10),
+  monkeyMouth: new THREE.TorusGeometry(0.09, 0.009, 6, 16, Math.PI),
   leaf: new THREE.ConeGeometry(1, 2.4, 10),
   plane: new THREE.PlaneGeometry(120, 120, 1, 1),
   box: new THREE.BoxGeometry(1, 1, 1),
 };
 
 let weaponGroup;
-let lastThrowButtonAt = 0;
 
 function readBest() {
   try {
@@ -159,6 +192,12 @@ function triggerFlash() {
   shell.classList.remove("screen-flash");
   void shell.offsetWidth;
   shell.classList.add("screen-flash");
+}
+
+function triggerDamageFlash() {
+  shell.classList.remove("damage-flash");
+  void shell.offsetWidth;
+  shell.classList.add("damage-flash");
 }
 
 function vibrate(duration) {
@@ -309,17 +348,42 @@ function buildWeapon() {
 
 function buildBananaModel(scale = 1) {
   const group = new THREE.Group();
-  const arc = new THREE.Mesh(geometries.bananaArc, materials.banana);
-  arc.rotation.set(0.1, 0.2, -0.52);
-  arc.castShadow = true;
-  arc.receiveShadow = true;
+  const body = new THREE.Mesh(geometries.bananaBody, materials.banana);
+  body.castShadow = true;
+  body.receiveShadow = true;
+
+  const topRidge = new THREE.Mesh(geometries.bananaRidge, materials.bananaHighlight);
+  topRidge.castShadow = true;
+
+  const lowerRidge = new THREE.Mesh(geometries.bananaRidge, materials.bananaShadow);
+  lowerRidge.position.set(0.02, -0.075, -0.045);
+  lowerRidge.rotation.z = -0.08;
+
+  const stem = new THREE.Mesh(geometries.bananaStem, materials.bananaTip);
+  stem.position.set(-0.38, -0.12, 0);
+  stem.rotation.set(0.15, 0.05, -0.72);
+  stem.castShadow = true;
 
   const tipA = new THREE.Mesh(geometries.bananaTip, materials.bananaTip);
-  tipA.position.set(-0.24, 0.15, 0);
+  tipA.position.set(-0.32, -0.08, 0);
+  tipA.scale.set(0.82, 0.72, 0.82);
   const tipB = new THREE.Mesh(geometries.bananaTip, materials.bananaTip);
-  tipB.position.set(0.17, -0.22, 0);
+  tipB.position.set(0.34, -0.12, 0);
+  tipB.scale.set(0.72, 0.62, 0.72);
 
-  group.add(arc, tipA, tipB);
+  const freckleMat = materials.bananaTip;
+  for (const [x, y, z, size] of [
+    [-0.08, 0.09, 0.063, 0.16],
+    [0.08, 0.07, 0.064, 0.12],
+    [0.19, 0.0, 0.058, 0.1],
+  ]) {
+    const spot = new THREE.Mesh(geometries.bananaTip, freckleMat);
+    spot.position.set(x, y, z);
+    spot.scale.setScalar(size);
+    group.add(spot);
+  }
+
+  group.add(body, topRidge, lowerRidge, stem, tipA, tipB);
   group.scale.setScalar(scale);
   return group;
 }
@@ -327,17 +391,32 @@ function buildBananaModel(scale = 1) {
 function buildMonkeyModel(palette) {
   const fur = makeMat(palette.fur);
   const face = makeMat(palette.face);
-  const dark = makeMat(0x130d08, 0.82);
+  const innerEarMat = makeMat(0xe6ad79, 0.7);
   const group = new THREE.Group();
 
   const body = makeMesh(geometries.sphere, fur, new THREE.Vector3(0, 0.8, 0), new THREE.Vector3(0.42, 0.58, 0.3));
-  const belly = makeMesh(geometries.sphere, face, new THREE.Vector3(0, 0.72, -0.24), new THREE.Vector3(0.26, 0.36, 0.08), false);
+  const belly = makeMesh(geometries.sphere, face, new THREE.Vector3(0, 0.72, 0.24), new THREE.Vector3(0.26, 0.36, 0.08), false);
   const head = makeMesh(geometries.sphere, fur, new THREE.Vector3(0, 1.45, 0), new THREE.Vector3(0.36, 0.34, 0.32));
-  const muzzle = makeMesh(geometries.sphere, face, new THREE.Vector3(0, 1.38, -0.25), new THREE.Vector3(0.23, 0.14, 0.09), false);
+  const muzzle = makeMesh(geometries.sphere, face, new THREE.Vector3(0, 1.38, 0.25), new THREE.Vector3(0.23, 0.14, 0.09), false);
   const earL = makeMesh(geometries.sphere, fur, new THREE.Vector3(-0.34, 1.47, 0), new THREE.Vector3(0.15, 0.15, 0.09));
   const earR = makeMesh(geometries.sphere, fur, new THREE.Vector3(0.34, 1.47, 0), new THREE.Vector3(0.15, 0.15, 0.09));
-  const eyeL = makeMesh(geometries.sphere, dark, new THREE.Vector3(-0.12, 1.49, -0.29), new THREE.Vector3(0.035, 0.035, 0.02), false);
-  const eyeR = makeMesh(geometries.sphere, dark, new THREE.Vector3(0.12, 1.49, -0.29), new THREE.Vector3(0.035, 0.035, 0.02), false);
+  const innerEarL = makeMesh(geometries.sphere, innerEarMat, new THREE.Vector3(-0.35, 1.47, 0.018), new THREE.Vector3(0.08, 0.09, 0.026), false);
+  const innerEarR = makeMesh(geometries.sphere, innerEarMat, new THREE.Vector3(0.35, 1.47, 0.018), new THREE.Vector3(0.08, 0.09, 0.026), false);
+
+  const eyeWhiteL = makeMesh(geometries.sphere, materials.eyeWhite, new THREE.Vector3(-0.12, 1.51, 0.3), new THREE.Vector3(0.055, 0.05, 0.021), false);
+  const eyeWhiteR = makeMesh(geometries.sphere, materials.eyeWhite, new THREE.Vector3(0.12, 1.51, 0.3), new THREE.Vector3(0.055, 0.05, 0.021), false);
+  const pupilL = makeMesh(geometries.sphere, materials.pupil, new THREE.Vector3(-0.105, 1.5, 0.322), new THREE.Vector3(0.019, 0.022, 0.01), false);
+  const pupilR = makeMesh(geometries.sphere, materials.pupil, new THREE.Vector3(0.105, 1.5, 0.322), new THREE.Vector3(0.019, 0.022, 0.01), false);
+  const nose = makeMesh(geometries.sphere, materials.nose, new THREE.Vector3(0, 1.4, 0.337), new THREE.Vector3(0.05, 0.033, 0.018), false);
+  const mouth = makeMesh(geometries.monkeyMouth, materials.nose, new THREE.Vector3(0, 1.34, 0.34), new THREE.Vector3(1, 0.72, 0.72), false);
+  mouth.rotation.z = Math.PI;
+  const cheekL = makeMesh(geometries.sphere, materials.cheek, new THREE.Vector3(-0.14, 1.36, 0.323), new THREE.Vector3(0.045, 0.028, 0.012), false);
+  const cheekR = makeMesh(geometries.sphere, materials.cheek, new THREE.Vector3(0.14, 1.36, 0.323), new THREE.Vector3(0.045, 0.028, 0.012), false);
+
+  const browL = makeMesh(geometries.cylinder, fur, new THREE.Vector3(-0.12, 1.58, 0.29), new THREE.Vector3(0.012, 0.1, 0.012), false);
+  browL.rotation.set(0.1, 0, Math.PI / 2 + 0.2);
+  const browR = makeMesh(geometries.cylinder, fur, new THREE.Vector3(0.12, 1.58, 0.29), new THREE.Vector3(0.012, 0.1, 0.012), false);
+  browR.rotation.set(0.1, 0, Math.PI / 2 - 0.2);
 
   const armL = makeMesh(geometries.cylinder, fur, new THREE.Vector3(-0.44, 0.76, 0), new THREE.Vector3(0.07, 0.52, 0.07));
   armL.rotation.z = -0.28;
@@ -348,7 +427,30 @@ function buildMonkeyModel(palette) {
   const legR = makeMesh(geometries.cylinder, fur, new THREE.Vector3(0.16, 0.24, 0.02), new THREE.Vector3(0.08, 0.46, 0.08));
   legR.rotation.z = -0.14;
 
-  group.add(body, belly, head, muzzle, earL, earR, eyeL, eyeR, armL, armR, legL, legR);
+  group.add(
+    body,
+    belly,
+    head,
+    muzzle,
+    earL,
+    earR,
+    innerEarL,
+    innerEarR,
+    eyeWhiteL,
+    eyeWhiteR,
+    pupilL,
+    pupilR,
+    nose,
+    mouth,
+    cheekL,
+    cheekR,
+    browL,
+    browR,
+    armL,
+    armR,
+    legL,
+    legR,
+  );
   group.userData.parts = { armL, armR, legL, legR, head };
   return group;
 }
@@ -409,7 +511,11 @@ function aimDirection() {
 }
 
 function throwBanana() {
-  if (state.ended || state.cooldown > 0) return;
+  if (state.ended) return;
+  if (state.cooldown > 0) {
+    setStatus("回收发射器", 0.42);
+    return;
+  }
 
   const direction = aimDirection();
   const origin = new THREE.Vector3(0.18, -0.18, -0.62).applyQuaternion(camera.quaternion);
@@ -451,6 +557,18 @@ function hitMonkey(monkey, banana) {
   setStatus(`命中 +${gain}`, 1.15);
   triggerFlash();
   vibrate(22);
+}
+
+function loseHealth(amount) {
+  if (state.ended || amount <= 0) return;
+  const loss = Math.min(state.health, amount);
+  state.health -= loss;
+  state.combo = 0;
+  triggerDamageFlash();
+  setStatus(`猴子没拿到香蕉 -${loss}血`, 1.15);
+  vibrate(45);
+
+  if (state.health <= 0) endRound("health");
 }
 
 function spawnHitEffect(monkey, gain) {
@@ -519,8 +637,7 @@ function updateMonkeys(dt) {
   if (escaped.length) {
     escaped.forEach((monkey) => scene.remove(monkey.model));
     state.monkeys = state.monkeys.filter((monkey) => monkey.z <= -1.6);
-    state.combo = 0;
-    setStatus("猴子冲过来了", 0.85);
+    loseHealth(escaped.length);
   }
 }
 
@@ -579,7 +696,7 @@ function update(dt) {
   state.statusTTL = Math.max(0, state.statusTTL - dt);
 
   if (state.statusTTL <= 0 && !state.ended) {
-    state.statusText = state.cooldown > 0 ? "回收发射器" : "就绪";
+    state.statusText = input.dragging ? "松开发射" : state.cooldown > 0 ? "回收发射器" : "按住拖动，松开发射";
   }
 
   updateKeyboard(dt);
@@ -590,7 +707,7 @@ function update(dt) {
   if (!state.ended) {
     state.timeLeft -= dt;
     updateMonkeys(dt);
-    if (state.timeLeft <= 0) endRound();
+    if (!state.ended && state.timeLeft <= 0) endRound("time");
   }
 
   updateHud();
@@ -600,26 +717,33 @@ function updateHud() {
   els.score.textContent = formatNumber(state.score);
   els.time.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
   els.combo.textContent = `x${Math.max(1, state.combo)}`;
+  els.health.textContent = `${state.health}/${MAX_HEALTH}`;
+  els.healthMeter.style.transform = `scaleX(${clamp(state.health / MAX_HEALTH, 0, 1)})`;
+  els.healthStat.classList.toggle("low", state.health <= 2);
   els.best.textContent = `最高 ${formatNumber(Math.max(state.best, state.score))}`;
   els.status.textContent = state.statusText;
-  els.throwButton.disabled = state.ended || state.cooldown > 0;
 }
 
-function endRound() {
+function endRound(reason = "time") {
+  if (state.ended) return;
   state.ended = true;
   state.timeLeft = 0;
   state.combo = 0;
-  state.statusText = "结算";
+  state.statusText = reason === "health" ? "血量归零" : "结算";
+  shell.classList.remove("aiming");
+  input.dragging = false;
 
   if (state.score > state.best) {
     state.best = state.score;
     writeBest(state.best);
   }
 
-  let title = "香蕉投手";
-  if (state.score >= 900) title = "丛林神射手";
-  else if (state.score >= 600) title = "金牌投蕉员";
-  else if (state.score >= 320) title = "稳定命中手";
+  let title = reason === "health" ? "香蕉防线失守" : "香蕉投手";
+  if (reason !== "health") {
+    if (state.score >= 900) title = "丛林神射手";
+    else if (state.score >= 600) title = "金牌投蕉员";
+    else if (state.score >= 320) title = "稳定命中手";
+  }
 
   els.roundTitle.textContent = title;
   els.finalScore.textContent = formatNumber(state.score);
@@ -634,10 +758,11 @@ function restart() {
   state.score = 0;
   state.combo = 0;
   state.hits = 0;
+  state.health = MAX_HEALTH;
   state.timeLeft = ROUND_SECONDS;
   state.cooldown = 0;
   state.spawnTimer = 0.45;
-  state.statusText = "就绪";
+  state.statusText = "按住拖动，松开发射";
   state.statusTTL = 0;
   state.recoil = 0;
   state.shake = 0;
@@ -647,6 +772,7 @@ function restart() {
   state.bananas = [];
   state.particles = [];
   els.panel.hidden = true;
+  shell.classList.remove("aiming", "damage-flash", "screen-flash");
   seedMonkeys();
   updateCamera();
   updateHud();
@@ -666,16 +792,17 @@ function aimByDelta(deltaX, deltaY) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
-  if (state.ended) return;
+  if (state.ended || input.dragging || event.isPrimary === false) return;
   input.dragging = true;
   input.pointerId = event.pointerId;
   input.lastX = event.clientX;
   input.lastY = event.clientY;
   input.downX = event.clientX;
   input.downY = event.clientY;
-  input.downTime = performance.now();
   input.moved = 0;
   canvas.setPointerCapture(event.pointerId);
+  shell.classList.add("aiming");
+  setStatus("松开发射", 0.6);
 });
 
 canvas.addEventListener("pointermove", (event) => {
@@ -691,27 +818,17 @@ canvas.addEventListener("pointermove", (event) => {
 canvas.addEventListener("pointerup", (event) => {
   if (!input.dragging || input.pointerId !== event.pointerId) return;
   input.dragging = false;
+  input.pointerId = null;
   canvas.releasePointerCapture(event.pointerId);
-
-  const travel = Math.hypot(event.clientX - input.downX, event.clientY - input.downY);
-  const elapsed = performance.now() - input.downTime;
-  if (travel < 12 && input.moved < 18 && elapsed < 280) throwBanana();
+  shell.classList.remove("aiming");
+  throwBanana();
 });
 
 canvas.addEventListener("pointercancel", () => {
   input.dragging = false;
+  input.pointerId = null;
+  shell.classList.remove("aiming");
 });
-
-function handleThrowButton(event) {
-  event.preventDefault();
-  const now = performance.now();
-  if (now - lastThrowButtonAt < 250) return;
-  lastThrowButtonAt = now;
-  throwBanana();
-}
-
-els.throwButton.addEventListener("pointerdown", handleThrowButton);
-els.throwButton.addEventListener("click", handleThrowButton);
 els.restartButton.addEventListener("click", restart);
 els.playAgainButton.addEventListener("click", restart);
 
@@ -739,6 +856,7 @@ window.__bananaStrike = {
   state: () => ({
     score: state.score,
     hits: state.hits,
+    health: state.health,
     timeLeft: state.timeLeft,
     monkeyCount: state.monkeys.length,
     bananaCount: state.bananas.length,

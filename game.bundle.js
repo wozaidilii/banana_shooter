@@ -10246,15 +10246,18 @@ var BananaStrike = (() => {
   var CAMERA_Y = 1.45;
   var STORAGE_KEY = "bananaStrikeBest";
   var MAX_MONKEYS = 10;
+  var MAX_HEALTH = 5;
   var canvas = document.querySelector("#gameCanvas");
   var shell = document.querySelector(".game-shell");
   var els = {
     score: document.querySelector("#scoreValue"),
     time: document.querySelector("#timeValue"),
     combo: document.querySelector("#comboValue"),
+    health: document.querySelector("#healthValue"),
+    healthMeter: document.querySelector("#healthMeter"),
+    healthStat: document.querySelector(".stat-health"),
     best: document.querySelector("#bestValue"),
     status: document.querySelector("#statusLabel"),
-    throwButton: document.querySelector("#throwButton"),
     restartButton: document.querySelector("#restartButton"),
     panel: document.querySelector("#roundOverPanel"),
     roundTitle: document.querySelector("#roundTitle"),
@@ -10290,10 +10293,11 @@ var BananaStrike = (() => {
     best: readBest(),
     combo: 0,
     hits: 0,
+    health: MAX_HEALTH,
     timeLeft: ROUND_SECONDS,
     cooldown: 0,
     spawnTimer: 0,
-    statusText: "\u5C31\u7EEA",
+    statusText: "\u6309\u4F4F\u62D6\u52A8\uFF0C\u677E\u5F00\u53D1\u5C04",
     statusTTL: 0,
     recoil: 0,
     shake: 0,
@@ -10311,7 +10315,6 @@ var BananaStrike = (() => {
     downX: 0,
     downY: 0,
     moved: 0,
-    downTime: 0,
     keys: /* @__PURE__ */ new Set()
   };
   var materials = {
@@ -10320,27 +10323,57 @@ var BananaStrike = (() => {
     trunk: new Ql({ color: 3811094, roughness: 0.86 }),
     leafDark: new Ql({ color: 1198114, roughness: 0.82 }),
     leafLight: new Ql({ color: 2783282, roughness: 0.78 }),
-    banana: new Ql({ color: 16764716, roughness: 0.45, metalness: 0.02 }),
+    banana: new Ql({ color: 16766518, roughness: 0.38, metalness: 0.01 }),
+    bananaHighlight: new Ql({ color: 16773773, roughness: 0.32, metalness: 0.02 }),
+    bananaShadow: new Ql({ color: 13273619, roughness: 0.55 }),
     bananaTip: new Ql({ color: 3875856, roughness: 0.8 }),
     skin: new Ql({ color: 13798228, roughness: 0.72 }),
     sleeve: new Ql({ color: 2378792, roughness: 0.74 }),
     launcher: new Ql({ color: 2111532, roughness: 0.48, metalness: 0.16 }),
     launcherBand: new Ql({ color: 16102705, roughness: 0.42, metalness: 0.04 }),
-    hit: new Ql({ color: 16768570, roughness: 0.34, emissive: 7096832 })
+    hit: new Ql({ color: 16768570, roughness: 0.34, emissive: 7096832 }),
+    eyeWhite: new Ql({ color: 16775391, roughness: 0.5 }),
+    pupil: new Ql({ color: 1248520, roughness: 0.35 }),
+    nose: new Ql({ color: 2167820, roughness: 0.58 }),
+    cheek: new Ql({ color: 15769711, roughness: 0.68 })
   };
   var geometries = {
     sphere: new Vl(1, 24, 16),
     belly: new Vl(1, 24, 16),
     cylinder: new bh(1, 1, 1, 16),
     barrel: new bh(0.1, 0.13, 1, 20),
-    bananaArc: new Ll(0.26, 0.045, 10, 28, Math.PI * 1.18),
-    bananaTip: new Vl(0.055, 10, 8),
+    bananaBody: new jl(
+      new Eh([
+        new Ts(-0.34, -0.08, 0),
+        new Ts(-0.16, 0.12, 0.01),
+        new Ts(0.14, 0.1, 0),
+        new Ts(0.34, -0.12, 0)
+      ]),
+      34,
+      0.06,
+      14,
+      false
+    ),
+    bananaRidge: new jl(
+      new Eh([
+        new Ts(-0.26, -0.035, 0.055),
+        new Ts(-0.1, 0.095, 0.06),
+        new Ts(0.12, 0.075, 0.055),
+        new Ts(0.27, -0.07, 0.052)
+      ]),
+      24,
+      0.012,
+      6,
+      false
+    ),
+    bananaTip: new Vl(0.06, 12, 8),
+    bananaStem: new bh(0.026, 0.04, 0.16, 10),
+    monkeyMouth: new Ll(0.09, 9e-3, 6, 16, Math.PI),
     leaf: new vh(1, 2.4, 10),
     plane: new Pl(120, 120, 1, 1),
     box: new gh(1, 1, 1)
   };
   var weaponGroup;
-  var lastThrowButtonAt = 0;
   function readBest() {
     try {
       return Number(localStorage.getItem(STORAGE_KEY) || 0);
@@ -10381,6 +10414,11 @@ var BananaStrike = (() => {
     shell.classList.remove("screen-flash");
     void shell.offsetWidth;
     shell.classList.add("screen-flash");
+  }
+  function triggerDamageFlash() {
+    shell.classList.remove("damage-flash");
+    void shell.offsetWidth;
+    shell.classList.add("damage-flash");
   }
   function vibrate(duration) {
     if (navigator.vibrate) navigator.vibrate(duration);
@@ -10510,31 +10548,65 @@ var BananaStrike = (() => {
   }
   function buildBananaModel(scale = 1) {
     const group = new Tr();
-    const arc = new Ra(geometries.bananaArc, materials.banana);
-    arc.rotation.set(0.1, 0.2, -0.52);
-    arc.castShadow = true;
-    arc.receiveShadow = true;
+    const body = new Ra(geometries.bananaBody, materials.banana);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    const topRidge = new Ra(geometries.bananaRidge, materials.bananaHighlight);
+    topRidge.castShadow = true;
+    const lowerRidge = new Ra(geometries.bananaRidge, materials.bananaShadow);
+    lowerRidge.position.set(0.02, -0.075, -0.045);
+    lowerRidge.rotation.z = -0.08;
+    const stem = new Ra(geometries.bananaStem, materials.bananaTip);
+    stem.position.set(-0.38, -0.12, 0);
+    stem.rotation.set(0.15, 0.05, -0.72);
+    stem.castShadow = true;
     const tipA = new Ra(geometries.bananaTip, materials.bananaTip);
-    tipA.position.set(-0.24, 0.15, 0);
+    tipA.position.set(-0.32, -0.08, 0);
+    tipA.scale.set(0.82, 0.72, 0.82);
     const tipB = new Ra(geometries.bananaTip, materials.bananaTip);
-    tipB.position.set(0.17, -0.22, 0);
-    group.add(arc, tipA, tipB);
+    tipB.position.set(0.34, -0.12, 0);
+    tipB.scale.set(0.72, 0.62, 0.72);
+    const freckleMat = materials.bananaTip;
+    for (const [x2, y2, z2, size] of [
+      [-0.08, 0.09, 0.063, 0.16],
+      [0.08, 0.07, 0.064, 0.12],
+      [0.19, 0, 0.058, 0.1]
+    ]) {
+      const spot = new Ra(geometries.bananaTip, freckleMat);
+      spot.position.set(x2, y2, z2);
+      spot.scale.setScalar(size);
+      group.add(spot);
+    }
+    group.add(body, topRidge, lowerRidge, stem, tipA, tipB);
     group.scale.setScalar(scale);
     return group;
   }
   function buildMonkeyModel(palette) {
     const fur = makeMat(palette.fur);
     const face = makeMat(palette.face);
-    const dark = makeMat(1248520, 0.82);
+    const innerEarMat = makeMat(15117689, 0.7);
     const group = new Tr();
     const body = makeMesh(geometries.sphere, fur, new Ts(0, 0.8, 0), new Ts(0.42, 0.58, 0.3));
-    const belly = makeMesh(geometries.sphere, face, new Ts(0, 0.72, -0.24), new Ts(0.26, 0.36, 0.08), false);
+    const belly = makeMesh(geometries.sphere, face, new Ts(0, 0.72, 0.24), new Ts(0.26, 0.36, 0.08), false);
     const head = makeMesh(geometries.sphere, fur, new Ts(0, 1.45, 0), new Ts(0.36, 0.34, 0.32));
-    const muzzle = makeMesh(geometries.sphere, face, new Ts(0, 1.38, -0.25), new Ts(0.23, 0.14, 0.09), false);
+    const muzzle = makeMesh(geometries.sphere, face, new Ts(0, 1.38, 0.25), new Ts(0.23, 0.14, 0.09), false);
     const earL = makeMesh(geometries.sphere, fur, new Ts(-0.34, 1.47, 0), new Ts(0.15, 0.15, 0.09));
     const earR = makeMesh(geometries.sphere, fur, new Ts(0.34, 1.47, 0), new Ts(0.15, 0.15, 0.09));
-    const eyeL = makeMesh(geometries.sphere, dark, new Ts(-0.12, 1.49, -0.29), new Ts(0.035, 0.035, 0.02), false);
-    const eyeR = makeMesh(geometries.sphere, dark, new Ts(0.12, 1.49, -0.29), new Ts(0.035, 0.035, 0.02), false);
+    const innerEarL = makeMesh(geometries.sphere, innerEarMat, new Ts(-0.35, 1.47, 0.018), new Ts(0.08, 0.09, 0.026), false);
+    const innerEarR = makeMesh(geometries.sphere, innerEarMat, new Ts(0.35, 1.47, 0.018), new Ts(0.08, 0.09, 0.026), false);
+    const eyeWhiteL = makeMesh(geometries.sphere, materials.eyeWhite, new Ts(-0.12, 1.51, 0.3), new Ts(0.055, 0.05, 0.021), false);
+    const eyeWhiteR = makeMesh(geometries.sphere, materials.eyeWhite, new Ts(0.12, 1.51, 0.3), new Ts(0.055, 0.05, 0.021), false);
+    const pupilL = makeMesh(geometries.sphere, materials.pupil, new Ts(-0.105, 1.5, 0.322), new Ts(0.019, 0.022, 0.01), false);
+    const pupilR = makeMesh(geometries.sphere, materials.pupil, new Ts(0.105, 1.5, 0.322), new Ts(0.019, 0.022, 0.01), false);
+    const nose = makeMesh(geometries.sphere, materials.nose, new Ts(0, 1.4, 0.337), new Ts(0.05, 0.033, 0.018), false);
+    const mouth = makeMesh(geometries.monkeyMouth, materials.nose, new Ts(0, 1.34, 0.34), new Ts(1, 0.72, 0.72), false);
+    mouth.rotation.z = Math.PI;
+    const cheekL = makeMesh(geometries.sphere, materials.cheek, new Ts(-0.14, 1.36, 0.323), new Ts(0.045, 0.028, 0.012), false);
+    const cheekR = makeMesh(geometries.sphere, materials.cheek, new Ts(0.14, 1.36, 0.323), new Ts(0.045, 0.028, 0.012), false);
+    const browL = makeMesh(geometries.cylinder, fur, new Ts(-0.12, 1.58, 0.29), new Ts(0.012, 0.1, 0.012), false);
+    browL.rotation.set(0.1, 0, Math.PI / 2 + 0.2);
+    const browR = makeMesh(geometries.cylinder, fur, new Ts(0.12, 1.58, 0.29), new Ts(0.012, 0.1, 0.012), false);
+    browR.rotation.set(0.1, 0, Math.PI / 2 - 0.2);
     const armL = makeMesh(geometries.cylinder, fur, new Ts(-0.44, 0.76, 0), new Ts(0.07, 0.52, 0.07));
     armL.rotation.z = -0.28;
     const armR = makeMesh(geometries.cylinder, fur, new Ts(0.44, 0.76, 0), new Ts(0.07, 0.52, 0.07));
@@ -10543,7 +10615,30 @@ var BananaStrike = (() => {
     legL.rotation.z = 0.14;
     const legR = makeMesh(geometries.cylinder, fur, new Ts(0.16, 0.24, 0.02), new Ts(0.08, 0.46, 0.08));
     legR.rotation.z = -0.14;
-    group.add(body, belly, head, muzzle, earL, earR, eyeL, eyeR, armL, armR, legL, legR);
+    group.add(
+      body,
+      belly,
+      head,
+      muzzle,
+      earL,
+      earR,
+      innerEarL,
+      innerEarR,
+      eyeWhiteL,
+      eyeWhiteR,
+      pupilL,
+      pupilR,
+      nose,
+      mouth,
+      cheekL,
+      cheekR,
+      browL,
+      browR,
+      armL,
+      armR,
+      legL,
+      legR
+    );
     group.userData.parts = { armL, armR, legL, legR, head };
     return group;
   }
@@ -10598,7 +10693,11 @@ var BananaStrike = (() => {
     return forwardVector.clone().normalize();
   }
   function throwBanana() {
-    if (state.ended || state.cooldown > 0) return;
+    if (state.ended) return;
+    if (state.cooldown > 0) {
+      setStatus("\u56DE\u6536\u53D1\u5C04\u5668", 0.42);
+      return;
+    }
     const direction = aimDirection();
     const origin = new Ts(0.18, -0.18, -0.62).applyQuaternion(camera.quaternion);
     origin.add(camera.position);
@@ -10633,6 +10732,16 @@ var BananaStrike = (() => {
     setStatus(`\u547D\u4E2D +${gain}`, 1.15);
     triggerFlash();
     vibrate(22);
+  }
+  function loseHealth(amount) {
+    if (state.ended || amount <= 0) return;
+    const loss = Math.min(state.health, amount);
+    state.health -= loss;
+    state.combo = 0;
+    triggerDamageFlash();
+    setStatus(`\u7334\u5B50\u6CA1\u62FF\u5230\u9999\u8549 -${loss}\u8840`, 1.15);
+    vibrate(45);
+    if (state.health <= 0) endRound("health");
   }
   function spawnHitEffect(monkey, gain) {
     const burstOrigin = new Ts(monkey.x, 1.08 * monkey.size, monkey.z);
@@ -10691,8 +10800,7 @@ var BananaStrike = (() => {
     if (escaped.length) {
       escaped.forEach((monkey) => scene.remove(monkey.model));
       state.monkeys = state.monkeys.filter((monkey) => monkey.z <= -1.6);
-      state.combo = 0;
-      setStatus("\u7334\u5B50\u51B2\u8FC7\u6765\u4E86", 0.85);
+      loseHealth(escaped.length);
     }
   }
   function updateBananas(dt2) {
@@ -10744,7 +10852,7 @@ var BananaStrike = (() => {
     state.shake = Math.max(0, state.shake - dt2 * 0.22);
     state.statusTTL = Math.max(0, state.statusTTL - dt2);
     if (state.statusTTL <= 0 && !state.ended) {
-      state.statusText = state.cooldown > 0 ? "\u56DE\u6536\u53D1\u5C04\u5668" : "\u5C31\u7EEA";
+      state.statusText = input.dragging ? "\u677E\u5F00\u53D1\u5C04" : state.cooldown > 0 ? "\u56DE\u6536\u53D1\u5C04\u5668" : "\u6309\u4F4F\u62D6\u52A8\uFF0C\u677E\u5F00\u53D1\u5C04";
     }
     updateKeyboard(dt2);
     updateCamera();
@@ -10753,7 +10861,7 @@ var BananaStrike = (() => {
     if (!state.ended) {
       state.timeLeft -= dt2;
       updateMonkeys(dt2);
-      if (state.timeLeft <= 0) endRound();
+      if (!state.ended && state.timeLeft <= 0) endRound("time");
     }
     updateHud();
   }
@@ -10761,23 +10869,30 @@ var BananaStrike = (() => {
     els.score.textContent = formatNumber(state.score);
     els.time.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
     els.combo.textContent = `x${Math.max(1, state.combo)}`;
+    els.health.textContent = `${state.health}/${MAX_HEALTH}`;
+    els.healthMeter.style.transform = `scaleX(${clamp(state.health / MAX_HEALTH, 0, 1)})`;
+    els.healthStat.classList.toggle("low", state.health <= 2);
     els.best.textContent = `\u6700\u9AD8 ${formatNumber(Math.max(state.best, state.score))}`;
     els.status.textContent = state.statusText;
-    els.throwButton.disabled = state.ended || state.cooldown > 0;
   }
-  function endRound() {
+  function endRound(reason = "time") {
+    if (state.ended) return;
     state.ended = true;
     state.timeLeft = 0;
     state.combo = 0;
-    state.statusText = "\u7ED3\u7B97";
+    state.statusText = reason === "health" ? "\u8840\u91CF\u5F52\u96F6" : "\u7ED3\u7B97";
+    shell.classList.remove("aiming");
+    input.dragging = false;
     if (state.score > state.best) {
       state.best = state.score;
       writeBest(state.best);
     }
-    let title = "\u9999\u8549\u6295\u624B";
-    if (state.score >= 900) title = "\u4E1B\u6797\u795E\u5C04\u624B";
-    else if (state.score >= 600) title = "\u91D1\u724C\u6295\u8549\u5458";
-    else if (state.score >= 320) title = "\u7A33\u5B9A\u547D\u4E2D\u624B";
+    let title = reason === "health" ? "\u9999\u8549\u9632\u7EBF\u5931\u5B88" : "\u9999\u8549\u6295\u624B";
+    if (reason !== "health") {
+      if (state.score >= 900) title = "\u4E1B\u6797\u795E\u5C04\u624B";
+      else if (state.score >= 600) title = "\u91D1\u724C\u6295\u8549\u5458";
+      else if (state.score >= 320) title = "\u7A33\u5B9A\u547D\u4E2D\u624B";
+    }
     els.roundTitle.textContent = title;
     els.finalScore.textContent = formatNumber(state.score);
     els.finalBest.textContent = formatNumber(state.best);
@@ -10790,10 +10905,11 @@ var BananaStrike = (() => {
     state.score = 0;
     state.combo = 0;
     state.hits = 0;
+    state.health = MAX_HEALTH;
     state.timeLeft = ROUND_SECONDS;
     state.cooldown = 0;
     state.spawnTimer = 0.45;
-    state.statusText = "\u5C31\u7EEA";
+    state.statusText = "\u6309\u4F4F\u62D6\u52A8\uFF0C\u677E\u5F00\u53D1\u5C04";
     state.statusTTL = 0;
     state.recoil = 0;
     state.shake = 0;
@@ -10803,6 +10919,7 @@ var BananaStrike = (() => {
     state.bananas = [];
     state.particles = [];
     els.panel.hidden = true;
+    shell.classList.remove("aiming", "damage-flash", "screen-flash");
     seedMonkeys();
     updateCamera();
     updateHud();
@@ -10819,16 +10936,17 @@ var BananaStrike = (() => {
     state.pitch = clamp(state.pitch - deltaY * sensitivity, -0.5, 0.5);
   }
   canvas.addEventListener("pointerdown", (event) => {
-    if (state.ended) return;
+    if (state.ended || input.dragging || event.isPrimary === false) return;
     input.dragging = true;
     input.pointerId = event.pointerId;
     input.lastX = event.clientX;
     input.lastY = event.clientY;
     input.downX = event.clientX;
     input.downY = event.clientY;
-    input.downTime = performance.now();
     input.moved = 0;
     canvas.setPointerCapture(event.pointerId);
+    shell.classList.add("aiming");
+    setStatus("\u677E\u5F00\u53D1\u5C04", 0.6);
   });
   canvas.addEventListener("pointermove", (event) => {
     if (!input.dragging || input.pointerId !== event.pointerId) return;
@@ -10842,23 +10960,16 @@ var BananaStrike = (() => {
   canvas.addEventListener("pointerup", (event) => {
     if (!input.dragging || input.pointerId !== event.pointerId) return;
     input.dragging = false;
+    input.pointerId = null;
     canvas.releasePointerCapture(event.pointerId);
-    const travel = Math.hypot(event.clientX - input.downX, event.clientY - input.downY);
-    const elapsed = performance.now() - input.downTime;
-    if (travel < 12 && input.moved < 18 && elapsed < 280) throwBanana();
+    shell.classList.remove("aiming");
+    throwBanana();
   });
   canvas.addEventListener("pointercancel", () => {
     input.dragging = false;
+    input.pointerId = null;
+    shell.classList.remove("aiming");
   });
-  function handleThrowButton(event) {
-    event.preventDefault();
-    const now = performance.now();
-    if (now - lastThrowButtonAt < 250) return;
-    lastThrowButtonAt = now;
-    throwBanana();
-  }
-  els.throwButton.addEventListener("pointerdown", handleThrowButton);
-  els.throwButton.addEventListener("click", handleThrowButton);
   els.restartButton.addEventListener("click", restart);
   els.playAgainButton.addEventListener("click", restart);
   window.addEventListener("keydown", (event) => {
@@ -10882,6 +10993,7 @@ var BananaStrike = (() => {
     state: () => ({
       score: state.score,
       hits: state.hits,
+      health: state.health,
       timeLeft: state.timeLeft,
       monkeyCount: state.monkeys.length,
       bananaCount: state.bananas.length

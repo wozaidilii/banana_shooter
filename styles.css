@@ -12,6 +12,7 @@
   --cyan: oklch(79% 0.11 203);
   --leaf: oklch(49% 0.14 143);
   --danger: oklch(67% 0.21 31);
+  --danger-deep: oklch(47% 0.17 28);
   --focus: oklch(90% 0.15 91);
   --radius: 8px;
   font-family:
@@ -102,13 +103,14 @@ button:focus-visible {
   top: calc(10px + env(safe-area-inset-top));
   left: max(10px, env(safe-area-inset-left));
   right: max(10px, env(safe-area-inset-right));
+  align-items: stretch;
 }
 
 .hud-bottom {
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
   bottom: calc(12px + env(safe-area-inset-bottom));
-  justify-content: space-between;
+  justify-content: center;
   align-items: end;
 }
 
@@ -155,6 +157,39 @@ button:focus-visible {
   background: linear-gradient(90deg, var(--banana), transparent);
 }
 
+.stat-health {
+  min-width: 82px;
+  border-color: oklch(72% 0.2 31 / 40%);
+}
+
+.stat-health::after {
+  display: none;
+}
+
+.stat-health i {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--danger), var(--banana));
+  box-shadow: 0 0 12px oklch(67% 0.21 31 / 28%);
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition:
+    transform 180ms ease-out,
+    background 180ms ease-out;
+}
+
+.stat-health.low {
+  border-color: oklch(70% 0.22 31 / 72%);
+  animation: health-warning 620ms ease-in-out infinite alternate;
+}
+
+.stat-health.low strong {
+  color: var(--danger);
+}
+
 .stat span,
 .throw-status span,
 .round-over p,
@@ -195,7 +230,6 @@ button:focus-visible {
 }
 
 .small-button:active,
-.throw-button:active,
 .round-over button:active {
   transform: scale(0.97);
 }
@@ -273,14 +307,54 @@ button:focus-visible {
   box-shadow: 0 0 12px oklch(79% 0.11 203 / 60%);
 }
 
+.game-shell.aiming .reticle {
+  transform: translate(-50%, -50%) scale(0.9);
+  filter:
+    drop-shadow(0 2px 4px oklch(0% 0 0 / 62%))
+    drop-shadow(0 0 12px oklch(88% 0.17 89 / 55%));
+}
+
 .throw-status {
-  width: min(55vw, 272px);
-  min-height: 66px;
-  padding: 10px 12px;
+  position: relative;
+  width: min(76vw, 360px);
+  min-height: 62px;
+  padding: 10px 14px;
   display: grid;
+  grid-template-columns: 1fr auto;
   align-content: center;
-  gap: 4px;
+  align-items: center;
+  gap: 6px 14px;
+  overflow: hidden;
   box-shadow: 0 8px 12px oklch(0% 0 0 / 24%);
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    transform 160ms ease-out;
+}
+
+.throw-status::after {
+  content: "";
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 99px;
+  background:
+    linear-gradient(90deg, var(--cyan), var(--banana), transparent 82%);
+  opacity: 0.62;
+  transform-origin: left center;
+  transform: scaleX(0.64);
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out;
+}
+
+.game-shell.aiming .throw-status {
+  border-color: oklch(91% 0.14 90 / 56%);
+  transform: translateY(-2px);
+}
+
+.game-shell.aiming .throw-status::after {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .throw-status span {
@@ -292,63 +366,6 @@ button:focus-visible {
   line-height: 1.15;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-}
-
-.throw-button {
-  position: relative;
-  pointer-events: auto;
-  width: 88px;
-  height: 88px;
-  border: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 28%, oklch(99% 0.08 96), transparent 27%),
-    radial-gradient(circle at 54% 58%, var(--banana), var(--banana-deep) 67%, oklch(43% 0.12 72));
-  color: oklch(17% 0.045 84);
-  font-size: 1.45rem;
-  font-weight: 960;
-  cursor: pointer;
-  box-shadow:
-    0 8px 0 oklch(39% 0.12 75),
-    0 16px 28px oklch(0% 0 0 / 36%),
-    0 0 0 7px oklch(88% 0.17 89 / 12%);
-  transition:
-    transform 130ms ease,
-    box-shadow 130ms ease,
-    filter 130ms ease;
-}
-
-.throw-button::before {
-  content: "";
-  position: absolute;
-  inset: 9px;
-  border-radius: 50%;
-  border: 2px solid oklch(23% 0.06 84 / 20%);
-}
-
-.throw-button::after {
-  content: "";
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  border: 1px solid oklch(90% 0.13 91 / 35%);
-}
-
-.throw-button[disabled] {
-  cursor: default;
-  filter: grayscale(0.72) brightness(0.78);
-  box-shadow:
-    0 4px 0 oklch(30% 0.04 90),
-    0 9px 14px oklch(0% 0 0 / 30%);
-}
-
-.throw-button span {
-  position: relative;
-  z-index: 1;
-  display: inline-grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
 }
 
 .round-over {
@@ -426,12 +443,38 @@ button:focus-visible {
   animation: hit-flash 180ms ease-out;
 }
 
+.damage-flash {
+  animation: damage-flash 260ms ease-out;
+}
+
 @keyframes hit-flash {
   0% {
     filter: saturate(1.24) brightness(1.1);
   }
   100% {
     filter: none;
+  }
+}
+
+@keyframes damage-flash {
+  0% {
+    filter: saturate(1.18) brightness(1.05);
+    box-shadow: inset 0 0 0 9999px oklch(62% 0.23 28 / 18%);
+  }
+  100% {
+    filter: none;
+    box-shadow: inset 0 0 0 9999px oklch(62% 0.23 28 / 0%);
+  }
+}
+
+@keyframes health-warning {
+  from {
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 10%);
+  }
+  to {
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 10%),
+      0 0 16px oklch(67% 0.21 31 / 28%);
   }
 }
 
@@ -445,43 +488,40 @@ button:focus-visible {
   .small-button {
     min-height: 46px;
   }
-
-  .throw-button {
-    width: 76px;
-    height: 76px;
-  }
-
-  .throw-button span {
-    width: 56px;
-    height: 56px;
-  }
 }
 
 @media (max-width: 390px) {
   .hud-top {
-    gap: 6px;
+    gap: 4px;
   }
 
   .stat {
-    min-width: 58px;
-    padding-inline: 7px;
+    min-width: 50px;
+    min-height: 50px;
+    padding-inline: 6px;
   }
 
   .stat-score {
-    min-width: 82px;
+    min-width: 74px;
+  }
+
+  .stat-health {
+    min-width: 68px;
   }
 
   .stat strong {
-    font-size: 1.08rem;
+    font-size: 0.98rem;
   }
 
   .small-button {
-    min-width: 52px;
-    padding-inline: 9px;
+    min-width: 48px;
+    min-height: 50px;
+    padding-inline: 7px;
   }
 
   .throw-status {
-    width: min(52vw, 218px);
+    width: min(82vw, 320px);
+    min-height: 58px;
   }
 }
 
