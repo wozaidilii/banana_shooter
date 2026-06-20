@@ -2,84 +2,86 @@
 
 > 人物复活投票 + AI亡灵对话 + 梗图皮肤共创 + 专属称号激励
 
-把「赛博墓碑」做成一个带有黑色幽默和抽象梗文化的病毒式传播产品。
+基于 **T3 Stack**（Next.js + TypeScript + tRPC + Tailwind CSS）构建的赛博梗文化实验品。
 
-## 核心玩法
+## 技术栈
 
-### ⚡ 复活赛投票
-- 带倒计时的复活赛，**2026年7月31日**截止
-- 投票决定哪些赛博人物能够「复活」
-- 初始英雄：**牢大**、**张雪峰**、丁真、马保国、蔡徐坤、峰哥亡命天涯
+| 层级 | 技术 |
+|------|------|
+| 框架 | Next.js 15 (App Router) |
+| 语言 | TypeScript（全项目，无传统 JavaScript 业务代码） |
+| API | tRPC（类型安全，预留 LLM 服务端代理） |
+| 样式 | Tailwind CSS + 赛博朋克自定义 CSS |
+| 持久化 | localStorage（客户端） |
 
-### 💬 AI 亡灵对话
-- 每个人物配有完整人设和关键词回复库
-- 聊天内容贴合人物身份、视角、语气
-- 支持接入真实 LLM API（见下方配置）
+## 项目结构
 
-### 🎨 梗图皮肤共创
-- 官方提供冰红茶战神、考研圣体等初始皮肤方向
-- 用户可自由上传创作史诗级抽象皮肤
-- 点赞互动，出圈赢称号
+```
+src/
+├── app/                    # Next.js App Router
+├── characters/
+│   ├── dialogue/           # 人物对话配置（关键词、兜底、引擎设置）
+│   └── prompts/            # 系统提示词（供 LLM API 接入）
+├── components/             # React UI 组件
+├── data/                   # 角色元数据、称号、皮肤模板
+├── lib/                    # 投票、皮肤、存储逻辑
+├── server/api/             # tRPC 路由（含 chat 代理）
+└── trpc/                   # tRPC 客户端配置
+```
 
-### 👑 称号奖励
-- 冥界选民、梗图炼金术士、史诗级造梗王、官方认证抽象大师……
-- 稀缺头衔满足成就感和参与感
+### 赛博人物目录说明
+
+- **`src/characters/dialogue/`** — 对话引擎、关键词回复、兜底话术、开场白、打字延迟等配置
+- **`src/characters/prompts/`** — 每个角色独立的 system prompt，下一步接入 LLM 时直接引用
 
 ## 本地开发
 
 ```bash
-# 安装依赖
 npm install
-
-# 构建
-npm run build
-
-# 启动本地服务
 npm run dev
-# 打开 http://127.0.0.1:5174/
+# 打开 http://localhost:3000
 ```
 
-开发时可直接用 ES Module 方式调试（需本地服务器）。
+## 构建与部署
 
-## 部署
-
-项目配置为 Vercel 静态部署，`npm run build` 输出到 `public/` 目录。
-
-## LLM API 接入（可选）
-
-在页面加载前配置：
-
-```html
-<script>
-  window.CYBER_TOMB_API = {
-    endpoint: "https://your-api.com/chat",
-    key: "your-api-key"
-  };
-</script>
+```bash
+npm run build
+npm start
 ```
 
-未配置时使用内置人设模板引擎。
+项目配置为 Vercel 部署（Next.js 框架）。
 
-## 技术栈
+## LLM API 接入
 
-- 原生 HTML / CSS / JavaScript
-- esbuild 打包
-- localStorage 本地持久化
-- Vercel 静态托管
+### 方式一：客户端直连
 
-## 后续扩展
+在浏览器控制台或页面脚本中配置：
 
-- [ ] 复活赛第二季 / 第三季
-- [ ] 皮肤合成系统
-- [ ] 成就系统
-- [ ] 复活名人堂
-- [ ] 后端 API + 真实投票统计
-- [ ] 用户登录与社交分享
+```typescript
+window.CYBER_TOMB_API = {
+  endpoint: "https://your-api.com/chat",
+  key: "your-api-key",
+};
+```
+
+### 方式二：tRPC 服务端代理（推荐）
+
+在 `.env` 中配置：
+
+```env
+LLM_API_ENDPOINT=https://your-api.com/chat
+LLM_API_KEY=your-api-key
+```
+
+客户端可通过 tRPC `chat.generateReply` 调用，避免暴露 API Key。
+
+### 修改系统提示词
+
+编辑 `src/characters/prompts/` 下对应角色的 `.ts` 文件即可。
 
 ## 调试
 
 ```js
-// 浏览器控制台
 window.__cyberTomb.navigate("vote")
 window.__cyberTomb.getLeaderboard()
 ```

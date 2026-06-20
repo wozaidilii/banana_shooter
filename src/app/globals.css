@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* 赛博墓碑 — 视觉系统 */
 
 :root {
@@ -14,8 +18,8 @@
   --gold: #fbbf24;
   --danger: #ff4444;
   --success: #22c55e;
-  --font: "Noto Sans SC", system-ui, sans-serif;
-  --mono: "JetBrains Mono", monospace;
+  --font: var(--font-noto), "Noto Sans SC", system-ui, sans-serif;
+  --mono: var(--font-mono), "JetBrains Mono", monospace;
   --radius: 12px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
