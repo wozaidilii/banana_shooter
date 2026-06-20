@@ -32,34 +32,45 @@ function fallbackReply(characterId: CharacterId): string {
   return pool[Math.floor(Math.random() * pool.length)]!;
 }
 
-/** 调用外部 LLM API（预留接入点） */
+/** 调用 DeepSeek Chat Completions API */
 async function callLLM(
   characterId: CharacterId,
   message: string,
   history: ChatMessage[],
 ): Promise<string | null> {
   const api = getLLMConfig();
-  if (!api.endpoint) return null;
+  if (!api.endpoint || !api.key) return null;
 
   const systemMessage = buildSystemMessage(characterId);
+  const recentHistory = history
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .slice(-DIALOGUE_SETTINGS.maxHistoryForLLM)
+    .map((m) => ({ role: m.role, content: m.content }));
 
   try {
     const res = await fetch(api.endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(api.key ? { Authorization: `Bearer ${api.key}` } : {}),
+        Authorization: `Bearer ${api.key}`,
       },
       body: JSON.stringify({
-        character: characterId,
-        systemPrompt: systemMessage.content,
-        message,
-        history: history.slice(-DIALOGUE_SETTINGS.maxHistoryForLLM),
+        model: api.model ?? "deepseek-v4-flash",
+        messages: [
+          systemMessage,
+          ...recentHistory,
+          { role: "user", content: message },
+        ],
+        thinking: { type: "disabled" },
+        temperature: 0.85,
+        max_tokens: 512,
       }),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { reply?: string; content?: string };
-    return data.reply ?? data.content ?? null;
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    return data.choices?.[0]?.message?.content?.trim() ?? null;
   } catch {
     return null;
   }

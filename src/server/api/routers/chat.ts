@@ -30,8 +30,10 @@ export const chatRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      const endpoint = process.env.LLM_API_ENDPOINT;
-      if (!endpoint) {
+      const endpoint =
+        process.env.LLM_API_ENDPOINT ?? "https://api.deepseek.com/chat/completions";
+      const apiKey = process.env.LLM_API_KEY;
+      if (!apiKey) {
         return { ok: false as const, reply: null, reason: "LLM API 未配置" };
       }
 
@@ -44,15 +46,18 @@ export const chatRouter = createTRPCRouter({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(process.env.LLM_API_KEY
-              ? { Authorization: `Bearer ${process.env.LLM_API_KEY}` }
-              : {}),
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            character: input.characterId,
-            systemPrompt: systemMessage.content,
-            message: input.message,
-            history: input.history ?? [],
+            model: process.env.LLM_MODEL ?? "deepseek-v4-flash",
+            messages: [
+              systemMessage,
+              ...(input.history ?? []),
+              { role: "user", content: input.message },
+            ],
+            thinking: { type: "disabled" },
+            temperature: 0.85,
+            max_tokens: 512,
           }),
         });
 
@@ -60,10 +65,13 @@ export const chatRouter = createTRPCRouter({
           return { ok: false as const, reply: null, reason: "LLM 请求失败" };
         }
 
-        const data = (await res.json()) as { reply?: string; content?: string };
+        const data = (await res.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+        const reply = data.choices?.[0]?.message?.content?.trim() ?? null;
         return {
           ok: true as const,
-          reply: data.reply ?? data.content ?? null,
+          reply,
           reason: null,
         };
       } catch {

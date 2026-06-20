@@ -4,3 +4,8 @@ out/
 .DS_Store
 npm-debug.log*
 *.tsbuildinfo
+
+# 本地密钥
+.env
+.env.local
+scripts/python/.env
