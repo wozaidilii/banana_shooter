@@ -1,4 +1,5 @@
-export { generateReply, getGreeting } from "./engine";
+export { generateReply, generateTemplateReply, getGreeting } from "./engine";
+export type { LLMFetcher } from "./engine";
 export { CHARACTER_DIALOGUES, getDialogueConfig } from "./keywords";
 export { DIALOGUE_SETTINGS, getLLMConfig } from "./settings";
 export type {

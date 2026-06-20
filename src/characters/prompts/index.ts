@@ -27,6 +27,14 @@ export function getSystemPromptMeta(characterId: CharacterId): SystemPrompt {
   return SYSTEM_PROMPTS[characterId];
 }
 
+/** 全局对话风格约束 — 每次请求都会附加，防止模型刻意堆哏 */
+const GLOBAL_CONVERSATION_CONSTRAINTS = [
+  "像本人真实口吻说话，日常以正常交流为主，不要表演式玩梗",
+  "网络哏是背景知识，仅在语境合适时隐晦带过；禁止每句硬塞哏、禁止连续堆梗",
+  "10 条回复里含明显哏的通常不超过 2-3 条，其余应像正常人聊天",
+  "用户没提哏时，不要主动把话题拐到哏上",
+];
+
 /** 构建 LLM messages 格式的 system 消息 */
 export function buildSystemMessage(characterId: CharacterId): {
   role: "system";
@@ -34,8 +42,12 @@ export function buildSystemMessage(characterId: CharacterId): {
 } {
   const prompt = SYSTEM_PROMPTS[characterId];
   const parts = [prompt.content];
-  if (prompt.constraints?.length) {
-    parts.push("\n\n行为约束：\n" + prompt.constraints.map((c) => `- ${c}`).join("\n"));
+  const constraints = [
+    ...(prompt.constraints ?? []),
+    ...GLOBAL_CONVERSATION_CONSTRAINTS,
+  ];
+  if (constraints.length) {
+    parts.push("\n\n行为约束：\n" + constraints.map((c) => `- ${c}`).join("\n"));
   }
   return { role: "system", content: parts.join("") };
 }

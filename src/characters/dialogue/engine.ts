@@ -1,18 +1,14 @@
 import type { CharacterId } from "~/data/characters";
-import { buildSystemMessage } from "~/characters/prompts";
 import { appendChatMessage, incrementChatCount } from "~/lib/storage";
 import { CHARACTER_DIALOGUES } from "./keywords";
-import { DIALOGUE_SETTINGS, getLLMConfig } from "./settings";
+import { DIALOGUE_SETTINGS } from "./settings";
 import type { ChatMessage, GenerateReplyResult } from "./types";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function matchKeyword(
-  characterId: CharacterId,
-  message: string,
-): string | null {
+function matchKeyword(characterId: CharacterId, message: string): string | null {
   const config = CHARACTER_DIALOGUES[characterId];
   const lower = message.toLowerCase();
 
@@ -32,79 +28,54 @@ function fallbackReply(characterId: CharacterId): string {
   return pool[Math.floor(Math.random() * pool.length)]!;
 }
 
-/** 调用 DeepSeek Chat Completions API */
-async function callLLM(
+export type LLMFetcher = (
   characterId: CharacterId,
   message: string,
   history: ChatMessage[],
-): Promise<string | null> {
-  const api = getLLMConfig();
-  if (!api.endpoint || !api.key) return null;
+) => Promise<string | null>;
 
-  const systemMessage = buildSystemMessage(characterId);
-  const recentHistory = history
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .slice(-DIALOGUE_SETTINGS.maxHistoryForLLM)
-    .map((m) => ({ role: m.role, content: m.content }));
+/** 模板引擎回复（关键词 / 兜底），仅在 LLM 不可用时使用 */
+export async function generateTemplateReply(
+  characterId: CharacterId,
+  userMessage: string,
+): Promise<{ reply: string; source: "keyword" | "fallback" }> {
+  const msg = userMessage.trim();
+  const { typingDelayMin, typingDelayMax } = DIALOGUE_SETTINGS;
+  await delay(typingDelayMin + Math.random() * (typingDelayMax - typingDelayMin));
 
-  try {
-    const res = await fetch(api.endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${api.key}`,
-      },
-      body: JSON.stringify({
-        model: api.model ?? "deepseek-v4-flash",
-        messages: [
-          systemMessage,
-          ...recentHistory,
-          { role: "user", content: message },
-        ],
-        thinking: { type: "disabled" },
-        temperature: 0.85,
-        max_tokens: 512,
-      }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    return data.choices?.[0]?.message?.content?.trim() ?? null;
-  } catch {
-    return null;
+  const keywordMatch = matchKeyword(characterId, msg);
+  if (keywordMatch) {
+    return { reply: keywordMatch, source: "keyword" };
   }
+  return { reply: fallbackReply(characterId), source: "fallback" };
 }
 
-/** 生成角色回复 — 主入口 */
+/** 生成角色回复 — 优先 LLM，失败时回退模板引擎 */
 export async function generateReply(
   characterId: CharacterId,
   userMessage: string,
   history: ChatMessage[] = [],
+  options?: { llmFetcher?: LLMFetcher },
 ): Promise<GenerateReplyResult> {
   const msg = userMessage.trim();
   if (!msg) {
     return { ok: false, reply: "说点什么吧，冥界不收空消息。" };
   }
 
-  const llmReply = await callLLM(characterId, msg, history);
   let reply: string;
   let source: GenerateReplyResult["source"];
+
+  const llmReply = options?.llmFetcher
+    ? await options.llmFetcher(characterId, msg, history)
+    : null;
 
   if (llmReply) {
     reply = llmReply;
     source = "llm";
   } else {
-    const { typingDelayMin, typingDelayMax } = DIALOGUE_SETTINGS;
-    await delay(typingDelayMin + Math.random() * (typingDelayMax - typingDelayMin));
-    const keywordMatch = matchKeyword(characterId, msg);
-    if (keywordMatch) {
-      reply = keywordMatch;
-      source = "keyword";
-    } else {
-      reply = fallbackReply(characterId);
-      source = "fallback";
-    }
+    const template = await generateTemplateReply(characterId, msg);
+    reply = template.reply;
+    source = template.source;
   }
 
   appendChatMessage(characterId, "user", msg);

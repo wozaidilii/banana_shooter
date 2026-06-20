@@ -931,6 +931,11 @@ body {
 
 .chat-header .btn-sm { margin-left: auto; }
 
+.chat-mode-badge {
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;

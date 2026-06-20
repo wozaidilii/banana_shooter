@@ -2,9 +2,15 @@ import { z } from "zod";
 import { buildSystemMessage, getSystemPrompt } from "~/characters/prompts";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
-/** 聊天 tRPC 路由 — 预留服务端 LLM 调用入口 */
+/** 聊天 tRPC 路由 — DeepSeek 服务端代理 */
 export const chatRouter = createTRPCRouter({
-  /** 获取角色的 system prompt（供客户端或 API 网关使用） */
+  /** LLM 是否已配置 */
+  isConfigured: publicProcedure.query(() => ({
+    configured: Boolean(process.env.LLM_API_KEY),
+    model: process.env.LLM_MODEL ?? "deepseek-v4-flash",
+  })),
+
+  /** 获取角色的 system prompt（供调试） */
   getSystemPrompt: publicProcedure
     .input(z.object({ characterId: z.string() }))
     .query(({ input }) => {
@@ -55,14 +61,20 @@ export const chatRouter = createTRPCRouter({
               ...(input.history ?? []),
               { role: "user", content: input.message },
             ],
-            thinking: { type: "disabled" },
-            temperature: 0.85,
-            max_tokens: 512,
+        thinking: { type: "disabled" },
+        temperature: 0.75,
+        max_tokens: 512,
           }),
         });
 
         if (!res.ok) {
-          return { ok: false as const, reply: null, reason: "LLM 请求失败" };
+          const errText = await res.text().catch(() => "");
+          console.error("[chat.generateReply] DeepSeek error:", res.status, errText);
+          return {
+            ok: false as const,
+            reply: null,
+            reason: `LLM 请求失败 (${res.status})`,
+          };
         }
 
         const data = (await res.json()) as {

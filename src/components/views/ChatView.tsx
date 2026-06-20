@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { generateReply, getGreeting } from "~/characters/dialogue";
+import { generateReply, getGreeting, type LLMFetcher } from "~/characters/dialogue";
 import type { CharacterId } from "~/data/characters";
 import { CHARACTERS } from "~/data/characters";
 import { showToast } from "~/components/Toast";
@@ -12,6 +12,7 @@ import {
   grantTitle,
   type StoredChatMessage,
 } from "~/lib/storage";
+import { api } from "~/trpc/react";
 
 interface ChatViewProps {
   initialCharacterId?: CharacterId;
@@ -25,6 +26,9 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const messagesRef = useRef<HTMLDivElement>(null);
+
+  const { data: llmStatus } = api.chat.isConfigured.useQuery();
+  const { mutateAsync: generateLLMReply } = api.chat.generateReply.useMutation();
 
   const char = CHARACTERS.find((c) => c.id === activeId);
 
@@ -41,6 +45,34 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight });
   }, [history, typing]);
 
+  const llmFetcher: LLMFetcher = useCallback(
+    async (characterId, message, chatHistory) => {
+      try {
+        const result = await generateLLMReply({
+          characterId,
+          message,
+          history: chatHistory.map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+        });
+
+        if (result.ok && result.reply) {
+          return result.reply;
+        }
+
+        if (result.reason) {
+          console.warn("[ChatView] LLM fallback:", result.reason);
+        }
+        return null;
+      } catch (err) {
+        console.error("[ChatView] LLM request failed:", err);
+        return null;
+      }
+    },
+    [generateLLMReply],
+  );
+
   const handleSelect = (id: CharacterId) => {
     setActiveId(id);
     setInput("");
@@ -56,19 +88,22 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
     if (!text || typing) return;
 
     setInput("");
+    // 立即显示用户消息，再等待 AI 回复
     setHistory((prev) => [...prev, { role: "user", content: text, ts: Date.now() }]);
     setTyping(true);
 
-    const result = await generateReply(activeId, text);
+    const result = await generateReply(activeId, text, history, { llmFetcher });
+
     setTyping(false);
 
     if (result.ok) {
-      setHistory((prev) => [
-        ...prev,
-        { role: "assistant", content: result.reply, ts: Date.now() },
-      ]);
+      setHistory(getChatHistory()[activeId] ?? []);
+      if (result.source !== "llm" && llmStatus?.configured) {
+        showToast("AI 暂时没响应，已改用模板回复", "info");
+      }
       if (getChatCount() >= 10) grantTitle("chat_10");
     } else {
+      setHistory((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
       showToast(result.reply, "error");
     }
   };
@@ -79,7 +114,12 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
     <>
       <section className="page-header">
         <h2>💬 亡灵对话</h2>
-        <p>缺德抽象，人设拉满 — 和赛博亡灵聊聊天</p>
+        <p>
+          缺德抽象，人设拉满 — 和赛博亡灵聊聊天
+          {llmStatus?.configured && (
+            <span className="chat-mode-badge"> · AI 已连接 ({llmStatus.model})</span>
+          )}
+        </p>
       </section>
 
       <div className="chat-layout">
