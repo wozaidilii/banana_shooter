@@ -1,9 +1,10 @@
 {
+  "name": "cyber-tombstone",
+  "version": "1.0.0",
+  "description": "赛博墓碑 — 人物复活投票、AI亡灵对话、梗图皮肤共创",
   "scripts": {
-    "build": "esbuild game.js --bundle --format=iife --global-name=BananaStrike --outfile=game.bundle.js && node scripts/prepare-vercel-output.mjs"
-  },
-  "dependencies": {
-    "three": "0.184.0"
+    "build": "esbuild js/app.js --bundle --format=iife --global-name=CyberTomb --outfile=app.bundle.js && node scripts/prepare-vercel-output.mjs",
+    "dev": "python3 -m http.server 5174 --bind 127.0.0.1"
   },
   "devDependencies": {
     "esbuild": "0.28.1"
