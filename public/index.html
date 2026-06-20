@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="赛博墓碑 — 人物复活投票、AI亡灵对话、梗图皮肤共创。牢大、张雪峰等冥界居民等你投票复活。" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta property="og:title" content="赛博墓碑" />
+  <meta property="og:description" content="复活赛投票 · AI亡灵对话 · 梗图皮肤共创 — 抽象梗文化的病毒式传播产品" />
+  <title>赛博墓碑 · Cyber Tombstone</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="logo" data-nav="home">
+      <span class="logo-icon">⚰️</span>
+      <span class="logo-text">赛博墓碑</span>
+    </div>
+    <nav class="nav" aria-label="主导航">
+      <button class="nav-btn active" data-view="home">首页</button>
+      <button class="nav-btn" data-view="vote">复活赛</button>
+      <button class="nav-btn" data-view="chat">对话</button>
+      <button class="nav-btn" data-view="skins">皮肤</button>
+      <button class="nav-btn" data-view="profile">称号</button>
+    </nav>
+  </header>
+
+  <main id="app" class="main"></main>
+
+  <footer class="site-footer">
+    <p>赛博墓碑 v1.0 · 抽象梗文化实验品 · 复活赛S1截止 2026.07.31</p>
+    <p class="footer-hint">第二季 · 合成 · 成就 · 复活名人堂 …… 敬请期待</p>
+  </footer>
+
+  <script src="app.bundle.js" defer></script>
+</body>
+</html>

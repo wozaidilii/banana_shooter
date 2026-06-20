@@ -1,6 +1,7 @@
 "use client";
 
 import type { ViewName } from "./CyberTombApp";
+import { LoginButton } from "./LoginButton";
 
 interface SiteHeaderProps {
   currentView: ViewName;
@@ -33,6 +34,7 @@ export function SiteHeader({ currentView, onNavigate }: SiteHeaderProps) {
           </button>
         ))}
       </nav>
+      <LoginButton />
     </header>
   );
 }
