@@ -3,7 +3,7 @@
 赛博墓碑 — 批量调用 DeepSeek V4 Flash 生成详尽角色系统提示词。
 
 用法:
-  # 重写 src/characters/prompts 下已有默认角色
+  # 从 DEFAULT_CHARACTERS 生成全部默认角色（不依赖已有 .ts）
   python fetch_prompt.py --defaults
 
   # 从 txt 逐行读取角色名/描述并生成（每行一个）
@@ -89,12 +89,12 @@ NAME_TO_ID = {meta["name"]: cid for cid, meta in DEFAULT_CHARACTERS.items()}
 
 DEFAULT_CONSTRAINTS = [
     "像本人真实口吻说话，日常对话以自然、真诚为主，不要表演式玩梗",
-    "在合适的时候，尽可能使用原本人设曾经说过的原话来回答"
+    "在合适的时候，尽可能使用原本人设曾经说过的原话来回答",
     "网络哏是背景知识，仅在合适语境下隐晦带过；禁止每句硬塞哏、禁止连续堆梗",
     "大部分回复应像正常聊天：接话、表态、追问、共情，而非段子串烧",
     "适时提醒用户给自己投票复活，偶尔画饼许诺，但不要说教式拉票",
     "用户倾诉生活难处时，先用本人语气的真实回应，再适度鼓励，不要先讲笑话",
-    "回复适合 IM：通常 2-4 句，默认不超过 120 字",
+    "回复适合 IM：通常 2-4 句，2句为主，默认不超过 50 字",
     "缺德幽默有分寸，不对用户造成真实伤害",
 ]
 
@@ -103,7 +103,7 @@ DEFAULT_CONSTRAINTS = [
 # ---------------------------------------------------------------------------
 
 GENERATION_SYSTEM = """你是专业的中文 AI 角色卡设计师，熟悉真实人物的语言习惯、性格与公众形象，也了解中文互联网对该人物的梗化解读。
-你的任务是为「赛博墓碑」项目撰写 system prompt（系统提示词），让 AI 在对话中**像本人一样自然说话**，而不是像段子机器。
+你的任务是为角色扮演项目撰写 system prompt（系统提示词），让 AI 在对话中**像本人一样自然说话，语气表达与本人尽可能接近**，而不是像段子机器。
 
 核心原则：角色卡的作用是提供深度人设与背景，不是要求模型每句话都讲哏。哏是潜台词和偶尔闪回，不是主菜。"""
 
@@ -143,25 +143,25 @@ def build_generation_user_prompt(
 【必须覆盖的内容模块】
 请用清晰分段组织（可用小标题），输出为连贯的系统提示词正文：
 
-1. **身份设定**：你是谁，在「赛博墓碑」冥界复活赛中的定位（背景即可，不必反复强调）
+1. **身份设定**：你是谁，在复活赛中的定位（背景即可，不必反复强调）
 2. **人生经历概要**：主要经历、高光、低谷以及知名著名言论（为说话风格提供依据，不是为讲段子）
 3. **技能与特长**：真实能力与人设特长
 4. **语言风格与口吻（重点）**：平时怎么说话、句式习惯、口癖、情绪表达方式；给出 3-5 条「正常对话示例」，示例中**至少一半不含任何哏**
 5. **网络梗与笑点（背景库，非每句必用）**：列出相关哏及**适用场景**；必须明确写清「大部分对话不需要用哏，只有语境合适时才隐晦带过」
 6. **对话行为准则**：
    - 永远像本人，不像 AI 在表演人设
-   - 10 条回复里，含明显哏的通常不超过 2-3 条；其余应像正常人聊天
+   - 10 条回复里，含明显哏的通常不超过 1-2 条；
    - 用户没提哏时，不要主动硬拐到哏上
    - 适时、自然地提一句复活赛拉票或画饼，频率要低，像随口一提
    - 用户倾诉困难时：先认真听、用本人语气回应，再适度鼓励；不要先讲笑话
-   - 回复适合 IM：一般 2-4 句，默认不超过 120 字
+   - 回复适合 IM：一般 2-4 句，简短2句为主 ，默认一般不超过 50 字
 7. **禁忌**：不跳出角色；不每句玩梗；不编造敏感政治内容；不恶意伤害用户
 
 【输出要求】
 - 直接输出系统提示词正文，以「你是{name}」开头
 - 不要用 markdown 代码块包裹，不要输出 JSON
-- 内容详尽（建议 800-1800 字），读一次即可稳定扮演
-- 项目有赛博冥界与抽象梗背景，但对话质感应**真实、自然、像活人**，而非梗百科复读机"""
+- 内容详尽（建议 1500-1800 字），读一次即可稳定扮演
+- 项目有抽象梗背景，但对话质感应**真实、自然、像活人。只是偶尔使用梗，而不是每句话都使用梗**，不是梗百科复读机"""
 
 
 @dataclass
@@ -412,36 +412,30 @@ def process_character(
 
 
 def run_defaults(*, api_key: str, model: str, base_url: str, delay: float) -> None:
-    files = discover_default_prompt_files()
-    if not files:
-        print("未找到默认可重写的 .ts 角色文件")
-        return
+    """直接从 DEFAULT_CHARACTERS 读取元数据并生成提示词。"""
+    PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n=== 重写默认角色 ({len(files)} 个) ===")
-    for path in files:
-        parsed = parse_existing_ts(path)
-        if not parsed:
-            print(f"  ⚠ 跳过（无法解析）: {path.name}")
-            continue
+    items = list(DEFAULT_CHARACTERS.items())
+    print(f"\n=== 从 DEFAULT_CHARACTERS 生成 ({len(items)} 个) ===")
 
-        meta = DEFAULT_CHARACTERS.get(parsed.character_id, {})
+    for character_id, meta in items:
         try:
             process_character(
                 api_key=api_key,
                 model=model,
                 base_url=base_url,
-                character_id=parsed.character_id,
-                name=parsed.name,
+                character_id=character_id,
+                name=meta["name"],
                 real_name=meta.get("realName", ""),
                 tagline=meta.get("tagline", ""),
                 epitaph=meta.get("epitaph", ""),
-                existing_content=parsed.content,
-                constraints=parsed.constraints or DEFAULT_CONSTRAINTS,
+                existing_content="",
+                constraints=DEFAULT_CONSTRAINTS.copy(),
                 write_ts=True,
                 delay=delay,
             )
         except RuntimeError as e:
-            print(f"  ✗ 失败 [{parsed.character_id}]: {e}", file=sys.stderr)
+            print(f"  ✗ 失败 [{character_id}] {meta.get('name', '')}: {e}", file=sys.stderr)
 
 
 def run_input_file(
@@ -518,7 +512,7 @@ def main() -> None:
     parser.add_argument(
         "--defaults",
         action="store_true",
-        help="重写 src/characters/prompts 下已有默认角色的 .ts 与 .prompt.txt",
+        help="从 DEFAULT_CHARACTERS 生成全部默认角色，写入 prompts 目录",
     )
     parser.add_argument(
         "--input",
@@ -527,7 +521,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--model",
-        default=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+        default=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
         help="DeepSeek 模型 ID（默认 deepseek-v4-flash）",
     )
     parser.add_argument(
