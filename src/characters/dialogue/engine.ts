@@ -1,5 +1,6 @@
 import type { CharacterId } from "~/data/characters";
-import { appendChatMessage, incrementChatCount } from "~/lib/storage";
+import { appendSessionMessage } from "~/lib/chat-sessions";
+import { incrementChatCount } from "~/lib/storage";
 import { CHARACTER_DIALOGUES } from "./keywords";
 import { DIALOGUE_SETTINGS } from "./settings";
 import type { ChatMessage, GenerateReplyResult } from "./types";
@@ -55,7 +56,7 @@ export async function generateReply(
   characterId: CharacterId,
   userMessage: string,
   history: ChatMessage[] = [],
-  options?: { llmFetcher?: LLMFetcher },
+  options?: { llmFetcher?: LLMFetcher; sessionId?: string },
 ): Promise<GenerateReplyResult> {
   const msg = userMessage.trim();
   if (!msg) {
@@ -78,8 +79,10 @@ export async function generateReply(
     source = template.source;
   }
 
-  appendChatMessage(characterId, "user", msg);
-  appendChatMessage(characterId, "assistant", reply);
+  if (options?.sessionId) {
+    appendSessionMessage(options.sessionId, "user", msg);
+    appendSessionMessage(options.sessionId, "assistant", reply);
+  }
   incrementChatCount();
 
   return { ok: true, reply, characterId, source };

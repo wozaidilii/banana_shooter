@@ -6,12 +6,17 @@ import type { CharacterId } from "~/data/characters";
 import { CHARACTERS } from "~/data/characters";
 import { showToast } from "~/components/Toast";
 import {
-  clearChatHistory,
-  getChatCount,
-  getChatHistory,
-  grantTitle,
-  type StoredChatMessage,
-} from "~/lib/storage";
+  createSession,
+  deleteSession,
+  ensureSessionForCharacter,
+  formatSessionTime,
+  getSessionMessages,
+  getSessionsForCharacter,
+  migrateLegacyChatHistory,
+  setActiveSession,
+  type ChatSession,
+} from "~/lib/chat-sessions";
+import { getChatCount, grantTitle, type StoredChatMessage } from "~/lib/storage";
 import { api } from "~/trpc/react";
 
 interface ChatViewProps {
@@ -19,10 +24,12 @@ interface ChatViewProps {
 }
 
 export function ChatView({ initialCharacterId }: ChatViewProps) {
-  const [activeId, setActiveId] = useState<CharacterId>(
+  const [activeCharacterId, setActiveCharacterId] = useState<CharacterId>(
     initialCharacterId ?? CHARACTERS[0]!.id,
   );
-  const [history, setHistory] = useState<StoredChatMessage[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [messages, setMessages] = useState<StoredChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -30,20 +37,29 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
   const { data: llmStatus } = api.chat.isConfigured.useQuery();
   const { mutateAsync: generateLLMReply } = api.chat.generateReply.useMutation();
 
-  const char = CHARACTERS.find((c) => c.id === activeId);
+  const char = CHARACTERS.find((c) => c.id === activeCharacterId);
 
-  const loadHistory = useCallback((id: CharacterId) => {
-    const all = getChatHistory();
-    setHistory(all[id] ?? []);
+  const refreshSessions = useCallback((characterId: CharacterId, sessionId?: string) => {
+    migrateLegacyChatHistory();
+    const session = sessionId
+      ? getSessionsForCharacter(characterId).find((s) => s.id === sessionId) ??
+        ensureSessionForCharacter(characterId)
+      : ensureSessionForCharacter(characterId);
+
+    setSessions(getSessionsForCharacter(characterId));
+    setActiveSessionId(session.id);
+    setActiveSession(characterId, session.id);
+    setMessages(getSessionMessages(session.id));
+    return session;
   }, []);
 
   useEffect(() => {
-    loadHistory(activeId);
-  }, [activeId, loadHistory]);
+    refreshSessions(activeCharacterId);
+  }, [activeCharacterId, refreshSessions]);
 
   useEffect(() => {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight });
-  }, [history, typing]);
+  }, [messages, typing]);
 
   const llmFetcher: LLMFetcher = useCallback(
     async (characterId, message, chatHistory) => {
@@ -73,42 +89,65 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
     [generateLLMReply],
   );
 
-  const handleSelect = (id: CharacterId) => {
-    setActiveId(id);
+  const handleSelectCharacter = (id: CharacterId) => {
+    setActiveCharacterId(id);
     setInput("");
   };
 
-  const handleClear = () => {
-    clearChatHistory(activeId);
-    loadHistory(activeId);
+  const handleSelectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setActiveSession(activeCharacterId, sessionId);
+    setMessages(getSessionMessages(sessionId));
+    setInput("");
+  };
+
+  const handleNewSession = () => {
+    const session = createSession(activeCharacterId);
+    refreshSessions(activeCharacterId, session.id);
+    setInput("");
+  };
+
+  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = deleteSession(sessionId);
+    if (next) {
+      refreshSessions(activeCharacterId, next.id);
+    }
   };
 
   const handleSend = async () => {
     const text = input.trim();
     if (!text || typing) return;
 
+    const session = activeSessionId
+      ? refreshSessions(activeCharacterId, activeSessionId)
+      : refreshSessions(activeCharacterId);
+
     setInput("");
-    // 立即显示用户消息，再等待 AI 回复
-    setHistory((prev) => [...prev, { role: "user", content: text, ts: Date.now() }]);
+    setMessages((prev) => [...prev, { role: "user", content: text, ts: Date.now() }]);
     setTyping(true);
 
-    const result = await generateReply(activeId, text, history, { llmFetcher });
+    const result = await generateReply(activeCharacterId, text, messages, {
+      llmFetcher,
+      sessionId: session.id,
+    });
 
     setTyping(false);
 
     if (result.ok) {
-      setHistory(getChatHistory()[activeId] ?? []);
+      setMessages(getSessionMessages(session.id));
+      refreshSessions(activeCharacterId, session.id);
       if (result.source !== "llm" && llmStatus?.configured) {
         showToast("AI 暂时没响应，已改用模板回复", "info");
       }
       if (getChatCount() >= 10) grantTitle("chat_10");
     } else {
-      setHistory((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+      setMessages((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
       showToast(result.reply, "error");
     }
   };
 
-  const greeting = getGreeting(activeId);
+  const greeting = getGreeting(activeCharacterId);
 
   return (
     <>
@@ -122,21 +161,53 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
         </p>
       </section>
 
+      <div className="chat-char-tabs">
+        {CHARACTERS.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className={`chat-char-tab${c.id === activeCharacterId ? " active" : ""}`}
+            style={{ "--accent": c.color } as React.CSSProperties}
+            onClick={() => handleSelectCharacter(c.id)}
+          >
+            <span>{c.emoji}</span>
+            <span>{c.name}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="chat-layout">
-        <aside className="chat-sidebar">
-          {CHARACTERS.map((c) => (
-            <button
-              key={c.id}
-              className={`chat-contact${c.id === activeId ? " active" : ""}`}
-              onClick={() => handleSelect(c.id)}
-            >
-              <span>{c.emoji}</span>
-              <div>
-                <strong>{c.name}</strong>
-                <small>{c.tagline}</small>
-              </div>
-            </button>
-          ))}
+        <aside className="chat-session-sidebar">
+          <button type="button" className="chat-new-session" onClick={handleNewSession}>
+            ＋ 新对话
+          </button>
+          <div className="chat-session-list">
+            {sessions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`chat-session-item${s.id === activeSessionId ? " active" : ""}`}
+                onClick={() => handleSelectSession(s.id)}
+              >
+                <span className="chat-session-title">{s.title}</span>
+                <span className="chat-session-meta">
+                  {formatSessionTime(s.updatedAt)} · {s.messages.length} 条
+                </span>
+                <span
+                  className="chat-session-delete"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="删除对话"
+                  onClick={(e) => handleDeleteSession(s.id, e)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleDeleteSession(s.id, e as unknown as React.MouseEvent);
+                  }}
+                >
+                  ×
+                </span>
+              </button>
+            ))}
+          </div>
         </aside>
 
         <div className="chat-main">
@@ -146,17 +217,14 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
               <strong>{char?.name}</strong>
               <small>{char?.realName}</small>
             </div>
-            <button className="btn-sm btn-ghost" onClick={handleClear}>
-              清空
-            </button>
           </div>
 
           <div className="chat-messages" ref={messagesRef}>
-            <div className="chat-bubble assistant">
+            <div className="chat-bubble assistant chat-greeting">
               <span className="bubble-avatar">{char?.emoji}</span>
               <div className="bubble-content">{greeting}</div>
             </div>
-            {history.map((m, i) => (
+            {messages.map((m, i) => (
               <div key={i} className={`chat-bubble ${m.role === "user" ? "user" : "assistant"}`}>
                 {m.role !== "user" && <span className="bubble-avatar">{char?.emoji}</span>}
                 <div className="bubble-content">{m.content}</div>
@@ -185,6 +253,7 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
               placeholder="说点什么缺德的……"
               maxLength={500}
               autoComplete="off"
+              disabled={typing}
             />
             <button className="btn btn-primary" onClick={() => void handleSend()} disabled={typing}>
               发送
