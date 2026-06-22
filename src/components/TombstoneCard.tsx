@@ -6,16 +6,26 @@ interface TombstoneCardProps {
 }
 
 export function TombstoneCard({ char, extra }: TombstoneCardProps) {
+  const recordId = char.id.slice(0, 8).toUpperCase();
+  const statusLabel = char.status === "resurrected" ? "RESURRECTED" : "CANDIDATE";
+
   return (
     <div
       className="tombstone"
       style={{ "--accent": char.color || "#00ffcc" } as React.CSSProperties}
       data-id={char.id}
     >
+      <div className="tombstone-rankline">
+        <span className="tombstone-sigil">{statusLabel}</span>
+        <span className="tombstone-id">ID:{recordId}</span>
+      </div>
       <div className="tombstone-top">
-        <span className="tombstone-emoji">{char.emoji || "💀"}</span>
+        <span className="tombstone-emoji" aria-hidden="true">
+          {char.emoji || "💀"}
+        </span>
         <div className="tombstone-info">
           <h3 className="tombstone-name">{char.name}</h3>
+          <p className="tombstone-real">{char.realName}</p>
           <p className="tombstone-tag">{char.tagline || ""}</p>
         </div>
       </div>

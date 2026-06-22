@@ -22,9 +22,13 @@ export function SiteHeader({ currentView, onNavigate }: SiteHeaderProps) {
   return (
     <header className="site-header">
       <button className="logo" type="button" onClick={() => onNavigate("home")}>
-        <span className="logo-icon">⚰️</span>
-        <span className="logo-text">赛博墓碑</span>
+        <span className="logo-icon" aria-hidden="true">CT</span>
+        <span className="logo-copy">
+          <span className="logo-text">赛博墓碑</span>
+          <span className="logo-sub">MEMORIAL LINK</span>
+        </span>
       </button>
+      <span className="header-signal" aria-hidden="true">S1 // LIVE</span>
       <nav className="nav" aria-label="主导航">
         {NAV_ITEMS.map(({ view, label }) => (
           <button

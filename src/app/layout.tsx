@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_SC, JetBrains_Mono } from "next/font/google";
+import { Noto_Sans_SC, Orbitron, Rajdhani, ZCOOL_QingKe_HuangYou } from "next/font/google";
 import { TRPCReactProvider } from "~/trpc/react";
 import { CyberTombApp } from "~/components/CyberTombApp";
 import "./globals.css";
@@ -10,10 +10,22 @@ const notoSansSC = Noto_Sans_SC({
   variable: "--font-noto",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const rajdhani = Rajdhani({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-mono",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-rajdhani",
+});
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  weight: ["500", "700", "800", "900"],
+  variable: "--font-orbitron",
+});
+
+const zcoolDisplay = ZCOOL_QingKe_HuangYou({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-cjk-display",
 });
 
 export const metadata: Metadata = {
@@ -27,14 +39,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0618",
+  themeColor: "#03060f",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className={`${notoSansSC.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang="zh-CN"
+      className={`${notoSansSC.variable} ${rajdhani.variable} ${orbitron.variable} ${zcoolDisplay.variable}`}
+    >
       <body>
         <TRPCReactProvider>{children}</TRPCReactProvider>
       </body>
