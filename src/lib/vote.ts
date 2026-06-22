@@ -6,7 +6,28 @@ import {
   getUserVotes,
   getVoteCounts,
   grantTitle,
+  saveVoteCounts,
 } from "~/lib/storage";
+
+const SWAP_LAODA_ZXF_KEY = "cyberTomb_swapLaodaZxfVotes";
+
+function hasSwappedLaodaZxfVotes(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(SWAP_LAODA_ZXF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markSwappedLaodaZxfVotes(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SWAP_LAODA_ZXF_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
 
 export interface Countdown {
   ended: boolean;
@@ -92,13 +113,37 @@ export function getTotalVotes(heroes: PublicHero[]): number {
 export function initVoteStorage(heroes: PublicHero[]): void {
   const counts = getVoteCounts();
   let changed = false;
+
+  if (!hasSwappedLaodaZxfVotes()) {
+    const laodaStored = counts.laoda;
+    const zxfStored = counts.zhangxuefeng;
+    const laodaBase = Number(heroes.find((h) => h.id === "laoda")?.votes) || 0;
+    const zxfBase = Number(heroes.find((h) => h.id === "zhangxuefeng")?.votes) || 0;
+
+    if (laodaStored != null && zxfStored != null) {
+      counts.laoda = zxfStored;
+      counts.zhangxuefeng = laodaStored;
+    } else {
+      counts.laoda = laodaBase;
+      counts.zhangxuefeng = zxfBase;
+    }
+
+    for (const c of heroes) {
+      if (counts[c.id] == null) {
+        counts[c.id] = Number(c.votes) || 0;
+      }
+    }
+
+    saveVoteCounts(counts);
+    markSwappedLaodaZxfVotes();
+    return;
+  }
+
   for (const c of heroes) {
     if (counts[c.id] == null) {
       counts[c.id] = Number(c.votes) || 0;
       changed = true;
     }
   }
-  if (changed) {
-    import("~/lib/storage").then(({ saveVoteCounts }) => saveVoteCounts(counts));
-  }
+  if (changed) saveVoteCounts(counts);
 }

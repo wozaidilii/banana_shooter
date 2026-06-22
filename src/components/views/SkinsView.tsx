@@ -27,7 +27,7 @@ export function SkinsView() {
       emoji: String(fd.get("emoji") ?? "🎨"),
     });
     if (result.ok) {
-      showToast("皮肤上传成功！等待冥界审核", "success");
+      showToast("皮肤已提交，等待管理员审核通过后展示", "success");
       setRefreshKey((k) => k + 1);
       e.currentTarget.reset();
     } else {
@@ -101,6 +101,7 @@ export function SkinsView() {
 
       <section className="section">
         <h3 className="section-subtitle">皮肤广场</h3>
+        <p className="section-hint">仅展示已通过管理员审核的皮肤</p>
         <div className="skin-grid">
           {skins.length ? (
             skins.map((s) => <SkinCard key={s.id} skin={s} onLike={handleLike} />)

@@ -840,6 +840,65 @@ textarea:focus-visible {
   color: var(--text-dim);
 }
 
+.hero-leader-spot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border: 1px solid oklch(0.93 0.27 103 / 0.28);
+  background:
+    linear-gradient(180deg, oklch(0.93 0.27 103 / 0.08), transparent 55%),
+    oklch(0.022 0.016 248 / 0.76);
+}
+
+.hero-leader-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.hero-leader-badge {
+  color: var(--acid);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.hero-leader-votes {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.hero-leader-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.hero-leader-meta strong {
+  font-family: var(--display);
+  font-size: 1.08rem;
+}
+
+.hero-leader-meta span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.hero-leader-empty {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
 .hero-visual {
   position: relative;
   min-height: 260px;
@@ -1019,7 +1078,7 @@ textarea:focus-visible {
   align-items: flex-start;
   justify-content: flex-end;
   gap: 7px;
-  min-height: 190px;
+  min-height: 360px;
   padding: 18px;
   background:
     linear-gradient(180deg, oklch(0.82 0.18 194 / 0.09), transparent),
@@ -1041,7 +1100,7 @@ textarea:focus-visible {
 
 .podium-item.rank-1 {
   order: 1;
-  min-height: 230px;
+  min-height: 400px;
   border-color: oklch(0.93 0.27 103 / 0.56);
   background:
     linear-gradient(145deg, oklch(0.93 0.27 103 / 0.14), transparent 48%),
@@ -1065,8 +1124,8 @@ textarea:focus-visible {
 /* 墓碑卡片 */
 .tombstone-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
 }
 
 .tombstone {
@@ -1100,8 +1159,8 @@ textarea:focus-visible {
 .tombstone-top {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
 .tombstone-rankline {
@@ -1124,6 +1183,250 @@ textarea:focus-visible {
   background: color-mix(in oklch, var(--accent, var(--accent)) 14%, transparent);
   border: 1px solid color-mix(in oklch, var(--accent, var(--accent)) 44%, transparent);
   font-size: 1.8rem;
+}
+
+.character-portrait {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.character-portrait-frame {
+  position: relative;
+  display: block;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--accent, var(--accent)) 10%, transparent);
+  border: 1px solid color-mix(in oklch, var(--accent, var(--accent)) 44%, transparent);
+  cursor: default;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.character-portrait-zoomable .character-portrait-frame {
+  cursor: zoom-in;
+}
+
+.character-portrait-zoomable .character-portrait-frame:hover {
+  border-color: var(--accent, var(--border-strong));
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent, var(--accent)) 28%, transparent);
+  transform: translateY(-1px);
+}
+
+.character-portrait-sm .character-portrait-frame {
+  width: 152px;
+  height: 188px;
+}
+
+.character-portrait-md .character-portrait-frame {
+  width: 196px;
+  height: 240px;
+}
+
+.character-portrait-lg .character-portrait-frame {
+  width: 252px;
+  height: 310px;
+}
+
+.character-portrait-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  animation: portrait-fade-in 0.35s ease;
+}
+
+@keyframes portrait-fade-in {
+  from { opacity: 0.35; transform: scale(1.03); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.character-portrait-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 6px 8px;
+  font-size: 0.68rem;
+  line-height: 1.1;
+  text-align: center;
+  color: oklch(0.98 0.01 248);
+  background: linear-gradient(180deg, transparent, oklch(0.02 0.014 248 / 0.88));
+  pointer-events: none;
+}
+
+.character-portrait-zoom-hint {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  font-size: 0.58rem;
+  line-height: 1.2;
+  color: oklch(0.98 0.01 248);
+  background: oklch(0.02 0.014 248 / 0.72);
+  border: 1px solid oklch(0.82 0.18 194 / 0.28);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+
+.character-portrait-zoomable .character-portrait-frame:hover .character-portrait-zoom-hint {
+  opacity: 1;
+}
+
+.character-portrait-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  max-width: 156px;
+}
+
+.character-portrait-md .character-portrait-dots {
+  max-width: 200px;
+}
+
+.character-portrait-lg .character-portrait-dots {
+  max-width: 260px;
+}
+
+.character-portrait-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: oklch(0.82 0.18 194 / 0.22);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.character-portrait-dot:hover {
+  transform: scale(1.15);
+  background: oklch(0.82 0.18 194 / 0.5);
+}
+
+.character-portrait-dot.active {
+  background: var(--accent, var(--acid));
+  box-shadow: 0 0 8px color-mix(in oklch, var(--accent, var(--acid)) 55%, transparent);
+}
+
+.podium-item .character-portrait {
+  margin-bottom: 6px;
+}
+
+.portrait-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: oklch(0.04 0.03 286 / 0.84);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s ease;
+}
+
+.portrait-lightbox {
+  position: relative;
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(145deg, oklch(0.2 0.08 286 / 0.98), oklch(0.12 0.055 286 / 0.98)),
+    var(--bg-card);
+  box-shadow: 0 12px 40px oklch(0 0 0 / 0.45);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+}
+
+.portrait-lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.portrait-lightbox-close:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.portrait-lightbox-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-right: 44px;
+}
+
+.portrait-lightbox-name {
+  font-family: var(--display);
+  font-size: 1.2rem;
+}
+
+.portrait-lightbox-skin {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.portrait-lightbox-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 240px;
+}
+
+.portrait-lightbox-img {
+  display: block;
+  max-width: min(100%, 840px);
+  max-height: min(78vh, 920px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid oklch(0.82 0.18 194 / 0.22);
+  background: oklch(0.02 0.014 248 / 0.5);
+  animation: portrait-fade-in 0.25s ease;
+}
+
+.portrait-lightbox-nav {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border);
+  background: oklch(0.03 0.016 248 / 0.88);
+  color: var(--text);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.portrait-lightbox-nav:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.portrait-lightbox-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
 }
 
 .tombstone-name {
@@ -1156,11 +1459,45 @@ textarea:focus-visible {
 
 .tombstone-meta {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   font-family: var(--mono);
   font-size: 0.8rem;
   color: var(--accent-dim);
+}
+
+.tombstone-votes {
+  font-size: 0.82rem;
+}
+
+.tombstone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-vote-inline.done {
+  border-color: oklch(0.93 0.27 103 / 0.42);
+  color: var(--acid);
+}
+
+.btn-skin-inline {
+  border-color: oklch(0.82 0.18 194 / 0.32);
+}
+
+.section-hint {
+  margin: -4px 0 12px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.admin-section-gap {
+  margin-top: 28px;
+}
+
+.skin-submit-modal {
+  max-width: 420px;
 }
 
 /* 功能卡片 */
@@ -2182,6 +2519,24 @@ textarea:focus-visible {
   }
   .hero-visual {
     min-height: 210px;
+  }
+  .portrait-lightbox {
+    padding: 14px;
+  }
+  .portrait-lightbox-stage {
+    flex-direction: column;
+  }
+  .portrait-lightbox-nav {
+    width: 100%;
+    max-width: 120px;
+  }
+  .character-portrait-lg .character-portrait-frame {
+    width: 216px;
+    height: 266px;
+  }
+  .character-portrait-md .character-portrait-frame {
+    width: 172px;
+    height: 212px;
   }
   .countdown-value {
     font-size: 1.75rem;

@@ -51,6 +51,8 @@ export interface StoredChatMessage {
   ts: number;
 }
 
+export type SkinReviewStatus = "pending" | "approved" | "rejected";
+
 export interface UserSkin {
   id: string;
   name: string;
@@ -62,6 +64,9 @@ export interface UserSkin {
   likes: number;
   adopted: boolean;
   createdAt: number;
+  reviewStatus?: SkinReviewStatus;
+  reviewNote?: string;
+  reviewedAt?: number;
 }
 
 export function getProfile(): UserProfile {
@@ -162,7 +167,33 @@ export function clearChatHistory(characterId?: CharacterId): void {
 
 export function getSkins(): UserSkin[] {
   const skins = safeGet<UserSkin[]>(KEYS.skins, []);
-  return Array.isArray(skins) ? skins : [];
+  if (!Array.isArray(skins)) return [];
+  return skins.map((skin) => ({
+    ...skin,
+    reviewStatus: skin.reviewStatus ?? "approved",
+  }));
+}
+
+export function getPendingSkins(): UserSkin[] {
+  return getSkins().filter((s) => s.reviewStatus === "pending");
+}
+
+export function reviewSkin(
+  skinId: string,
+  decision: "approved" | "rejected",
+  reviewNote?: string,
+): { ok: boolean; reason?: string } {
+  if (!skinId) return { ok: false, reason: "无效皮肤" };
+  const skins = getSkins();
+  const skin = skins.find((s) => s.id === skinId);
+  if (!skin) return { ok: false, reason: "皮肤不存在" };
+  if (skin.reviewStatus !== "pending") return { ok: false, reason: "该皮肤已审核" };
+
+  skin.reviewStatus = decision;
+  skin.reviewNote = reviewNote?.trim() || undefined;
+  skin.reviewedAt = Date.now();
+  safeSet(KEYS.skins, skins);
+  return { ok: true };
 }
 
 export function addSkin(skin: {
@@ -185,6 +216,7 @@ export function addSkin(skin: {
     likes: 0,
     adopted: false,
     createdAt: Date.now(),
+    reviewStatus: "pending",
   };
   skins.unshift(entry);
   safeSet(KEYS.skins, skins);
@@ -195,7 +227,7 @@ export function likeSkin(skinId: string): number | false {
   if (!skinId) return false;
   const skins = getSkins();
   const skin = skins.find((s) => s.id === skinId);
-  if (!skin) return false;
+  if (!skin || skin.reviewStatus !== "approved") return false;
   skin.likes = (Number(skin.likes) || 0) + 1;
   safeSet(KEYS.skins, skins);
   return skin.likes;

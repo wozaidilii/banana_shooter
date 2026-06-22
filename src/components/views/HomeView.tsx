@@ -9,7 +9,12 @@ import {
   getLeaderboard,
   getTotalVotes,
   initVoteStorage,
+  isVotingEnded,
+  vote,
 } from "~/lib/vote";
+import { CharacterPortrait } from "~/components/CharacterPortrait";
+import { SkinSubmitModal } from "~/components/SkinSubmitModal";
+import { showToast } from "~/components/Toast";
 import { TombstoneCard } from "~/components/TombstoneCard";
 
 interface HomeViewProps {
@@ -19,6 +24,11 @@ interface HomeViewProps {
 export function HomeView({ onNavigate }: HomeViewProps) {
   const { heroes, isLoading } = useHeroes();
   const [cd, setCd] = useState(getCountdown());
+  const [tick, setTick] = useState(0);
+  const [skinModal, setSkinModal] = useState<{ id: string; name: string } | null>(null);
+  const ended = isVotingEnded();
+
+  void tick;
 
   useEffect(() => {
     if (heroes.length) initVoteStorage(heroes);
@@ -34,6 +44,16 @@ export function HomeView({ onNavigate }: HomeViewProps) {
     const timer = setInterval(() => setCd(getCountdown()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleVote = (characterId: string) => {
+    const result = vote(characterId, heroes);
+    if (result.ok) {
+      showToast("投票成功！冥界感受到了你的力量", "success");
+      setTick((t) => t + 1);
+    } else {
+      showToast(result.reason ?? "投票失败", "error");
+    }
+  };
 
   if (isLoading && !heroes.length) {
     return <p className="empty">加载冥界居民中…</p>;
@@ -94,18 +114,28 @@ export function HomeView({ onNavigate }: HomeViewProps) {
             <span className="countdown-value">{formatCountdown(cd)}</span>
             <span className="countdown-hint">截止 2026.07.31 · 已有 {total.toLocaleString()} 票</span>
           </div>
-          <div className="hero-visual" aria-hidden="true">
-            <div className="city-card">
-              <span className="city-sun" />
-              <span className="city-line city-line-a" />
-              <span className="city-line city-line-b" />
-              <span className="city-line city-line-c" />
-              <span className="city-spike city-spike-a" />
-              <span className="city-spike city-spike-b" />
-              <span className="city-spike city-spike-c" />
-              <span className="neural-ring neural-ring-a" />
-              <span className="neural-ring neural-ring-b" />
-            </div>
+          <div className="hero-leader-spot" aria-label="复活榜第一名">
+            {leader ? (
+              <>
+                <div className="hero-leader-head">
+                  <span className="hero-leader-badge">#01 · TOP SIGNAL</span>
+                  <span className="hero-leader-votes">{leader.voteCount.toLocaleString()} 票</span>
+                </div>
+                <CharacterPortrait
+                  characterId={leader.id}
+                  characterName={leader.name}
+                  size="lg"
+                  showLabel
+                  showDots
+                />
+                <div className="hero-leader-meta">
+                  <strong>{leader.name}</strong>
+                  <span>{leader.realName}</span>
+                </div>
+              </>
+            ) : (
+              <p className="hero-leader-empty">等待榜首接入…</p>
+            )}
           </div>
           <div className="terminal-footer">
             <span>MEMEWARE SYNC</span>
@@ -123,7 +153,7 @@ export function HomeView({ onNavigate }: HomeViewProps) {
           {top3.map((c, i) => (
             <div key={c.id} className={`podium-item rank-${i + 1}`}>
               <span className="podium-rank">#{String(i + 1).padStart(2, "0")}</span>
-              <span className="podium-emoji">{c.emoji}</span>
+              <CharacterPortrait characterId={c.id} characterName={c.name} size="lg" showLabel showDots />
               <span className="podium-name">{c.name}</span>
               <span className="podium-real">{c.realName}</span>
               <span className="podium-votes">{c.voteCount.toLocaleString()} 票</span>
@@ -135,7 +165,7 @@ export function HomeView({ onNavigate }: HomeViewProps) {
       <section className="section archive-section">
         <div className="section-heading-block">
           <h2 className="section-title">冥界居民</h2>
-          <p>每张墓碑都是一段断线人格，点击接入专属亡灵频道。</p>
+          <p>每张墓碑都是一段断线人格，投票、对话或上传梗图皮肤。</p>
         </div>
         <div className="tombstone-grid">
           {board.map((c) => (
@@ -144,10 +174,25 @@ export function HomeView({ onNavigate }: HomeViewProps) {
               char={c}
               extra={
                 <div className="tombstone-meta">
-                  <span>{c.voteCount.toLocaleString()} 票</span>
-                  <button className="btn-sm" onClick={() => onNavigate("chat", { characterId: c.id })}>
-                    对话
-                  </button>
+                  <span className="tombstone-votes">{c.voteCount.toLocaleString()} 票</span>
+                  <div className="tombstone-actions">
+                    <button
+                      className={`btn-sm btn-vote-inline${c.voted ? " done" : ""}`}
+                      disabled={ended || c.voted}
+                      onClick={() => handleVote(c.id)}
+                    >
+                      {c.voted ? "已投" : ended ? "截止" : "投票"}
+                    </button>
+                    <button className="btn-sm" onClick={() => onNavigate("chat", { characterId: c.id })}>
+                      对话
+                    </button>
+                    <button
+                      className="btn-sm btn-skin-inline"
+                      onClick={() => setSkinModal({ id: c.id, name: c.name })}
+                    >
+                      上传皮肤
+                    </button>
+                  </div>
                 </div>
               }
             />
@@ -183,6 +228,15 @@ export function HomeView({ onNavigate }: HomeViewProps) {
           </div>
         </div>
       </section>
+
+      {skinModal && (
+        <SkinSubmitModal
+          open
+          characterId={skinModal.id}
+          characterName={skinModal.name}
+          onClose={() => setSkinModal(null)}
+        />
+      )}
     </>
   );
 }

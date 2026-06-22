@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { CHARACTERS } from "~/data/characters";
 import { AdminLoginModal } from "~/components/AdminLoginModal";
 import { showToast } from "~/components/Toast";
 import { useHeroes } from "~/context/HeroContext";
 import { useAdminAuth } from "~/hooks/useAdminAuth";
+import { getPendingSkinSubmissions, reviewSkin } from "~/lib/skins";
 import type { HeroRecord } from "~/server/db/types";
 import { api } from "~/trpc/react";
 
@@ -30,6 +32,10 @@ export function AdminView() {
   const [tab, setTab] = useState<AdminTab>("pending");
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [skinTick, setSkinTick] = useState(0);
+
+  void skinTick;
+  const pendingSkins = getPendingSkinSubmissions();
 
   const utils = api.useUtils();
   const { data: allHeroes, refetch: refetchAll } = api.admin.listAll.useQuery(undefined, {
@@ -72,6 +78,20 @@ export function AdminView() {
       </>
     );
   }
+
+  const handleReviewSkin = (skinId: string, decision: "approved" | "rejected") => {
+    let reviewNote: string | undefined;
+    if (decision === "rejected") {
+      reviewNote = window.prompt("拒绝原因（可选）") ?? undefined;
+    }
+    const result = reviewSkin(skinId, decision, reviewNote);
+    if (result.ok) {
+      showToast(decision === "approved" ? "皮肤已通过审核" : "皮肤已拒绝", "success");
+      setSkinTick((t) => t + 1);
+    } else {
+      showToast(result.reason ?? "操作失败", "error");
+    }
+  };
 
   const handleReview = async (id: string, decision: "approved" | "rejected") => {
     let reviewNote: string | undefined;
@@ -139,6 +159,7 @@ export function AdminView() {
   };
 
   const approvedHeroes = allHeroes?.filter((h) => h.reviewStatus === "approved") ?? [];
+  const pendingCount = (pendingHeroes?.length ?? 0) + pendingSkins.length;
 
   return (
     <>
@@ -155,7 +176,7 @@ export function AdminView() {
       <div className="admin-tabs">
         {(
           [
-            ["pending", `待审核 (${pendingHeroes?.length ?? 0})`],
+            ["pending", `待审核 (${pendingCount})`],
             ["heroes", "英雄管理"],
             ["create", editingId ? "编辑英雄" : "新建英雄"],
           ] as const
@@ -172,8 +193,9 @@ export function AdminView() {
 
       {tab === "pending" && (
         <section className="section">
+          <h3 className="section-subtitle">待审核英雄</h3>
           {(pendingHeroes?.length ?? 0) === 0 ? (
-            <p className="empty">暂无待审核提交</p>
+            <p className="empty">暂无待审核英雄提交</p>
           ) : (
             <div className="admin-list">
               {pendingHeroes!.map((hero) => (
@@ -205,6 +227,48 @@ export function AdminView() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          <h3 className="section-subtitle admin-section-gap">待审核皮肤</h3>
+          {pendingSkins.length === 0 ? (
+            <p className="empty">暂无待审核皮肤</p>
+          ) : (
+            <div className="admin-list">
+              {pendingSkins.map((skin) => {
+                const char = CHARACTERS.find((c) => c.id === skin.characterId);
+                return (
+                  <div key={skin.id} className="admin-card">
+                    <span className="admin-card-emoji">{skin.emoji || "🎨"}</span>
+                    <div className="admin-card-body">
+                      <h4>
+                        {skin.name}{" "}
+                        <small>提交者：{skin.author || "匿名"}</small>
+                      </h4>
+                      <p>{skin.desc || "暂无描述"}</p>
+                      {char && (
+                        <p className="admin-persona-preview">
+                          绑定角色：{char.emoji} {char.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="admin-card-actions">
+                      <button
+                        className="btn-sm btn-approve"
+                        onClick={() => handleReviewSkin(skin.id, "approved")}
+                      >
+                        通过
+                      </button>
+                      <button
+                        className="btn-sm btn-reject"
+                        onClick={() => handleReviewSkin(skin.id, "rejected")}
+                      >
+                        拒绝
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

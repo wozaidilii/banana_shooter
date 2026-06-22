@@ -1,3 +1,4 @@
+import { CharacterPortrait } from "~/components/CharacterPortrait";
 import type { PublicHero } from "~/server/db/types";
 
 interface TombstoneCardProps {
@@ -20,9 +21,7 @@ export function TombstoneCard({ char, extra }: TombstoneCardProps) {
         <span className="tombstone-id">ID:{recordId}</span>
       </div>
       <div className="tombstone-top">
-        <span className="tombstone-emoji" aria-hidden="true">
-          {char.emoji || "💀"}
-        </span>
+        <CharacterPortrait characterId={char.id} characterName={char.name} size="lg" showLabel showDots />
         <div className="tombstone-info">
           <h3 className="tombstone-name">{char.name}</h3>
           <p className="tombstone-real">{char.realName}</p>

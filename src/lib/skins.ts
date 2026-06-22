@@ -1,6 +1,15 @@
 import { CHARACTERS } from "~/data/characters";
 import { SKIN_TEMPLATES } from "~/data/skin-templates";
-import { addSkin, getSkins, getTitles, grantTitle, likeSkin } from "~/lib/storage";
+import {
+  addSkin,
+  getPendingSkins,
+  getSkins,
+  getTitles,
+  grantTitle,
+  likeSkin,
+  reviewSkin as reviewSkinInStorage,
+  type UserSkin,
+} from "~/lib/storage";
 
 export { SKIN_TEMPLATES };
 
@@ -13,6 +22,7 @@ export interface DisplaySkin {
   author: string;
   likes: number;
   official?: boolean;
+  reviewStatus?: UserSkin["reviewStatus"];
 }
 
 function guessCharacterForTemplate(templateId: string): string {
@@ -27,8 +37,23 @@ function guessCharacterForTemplate(templateId: string): string {
   return map[templateId] ?? "";
 }
 
+function toDisplaySkin(skin: UserSkin): DisplaySkin {
+  return {
+    id: skin.id,
+    name: skin.name,
+    emoji: skin.emoji,
+    desc: skin.desc,
+    characterId: skin.characterId,
+    author: skin.author,
+    likes: skin.likes,
+    reviewStatus: skin.reviewStatus,
+  };
+}
+
 export function getAllSkins(): DisplaySkin[] {
-  const userSkins = getSkins();
+  const userSkins = getSkins()
+    .filter((s) => s.reviewStatus === "approved")
+    .map(toDisplaySkin);
   const official: DisplaySkin[] = SKIN_TEMPLATES.map((t) => ({
     ...t,
     id: `official_${t.id}`,
@@ -36,8 +61,13 @@ export function getAllSkins(): DisplaySkin[] {
     author: "赛博墓碑官方",
     likes: Math.floor(Math.random() * 50) + 20,
     characterId: guessCharacterForTemplate(t.id),
+    reviewStatus: "approved" as const,
   }));
   return [...userSkins, ...official];
+}
+
+export function getPendingSkinSubmissions(): DisplaySkin[] {
+  return getPendingSkins().map(toDisplaySkin);
 }
 
 export function createSkin(data: {
@@ -55,6 +85,14 @@ export function createSkin(data: {
   }
 
   return result;
+}
+
+export function reviewSkin(
+  skinId: string,
+  decision: "approved" | "rejected",
+  reviewNote?: string,
+): { ok: boolean; reason?: string } {
+  return reviewSkinInStorage(skinId, decision, reviewNote);
 }
 
 export function like(skinId: string): { ok: boolean; likes?: number } {
