@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useHeroes } from "~/context/HeroContext";
 import {
   formatCountdown,
   getCountdown,
@@ -15,10 +16,14 @@ interface VoteViewProps {
 }
 
 export function VoteView({ onRefresh }: VoteViewProps) {
+  const { heroes } = useHeroes();
   const [cd, setCd] = useState(getCountdown());
+  const [tick, setTick] = useState(0);
   const ended = isVotingEnded();
-  const board = getLeaderboard();
+  const board = getLeaderboard(heroes);
   const maxVotes = board[0]?.voteCount || 1;
+
+  void tick;
 
   useEffect(() => {
     const timer = setInterval(() => setCd(getCountdown()), 1000);
@@ -26,9 +31,10 @@ export function VoteView({ onRefresh }: VoteViewProps) {
   }, []);
 
   const handleVote = (id: string) => {
-    const result = vote(id);
+    const result = vote(id, heroes);
     if (result.ok) {
       showToast("投票成功！冥界感受到了你的力量", "success");
+      setTick((t) => t + 1);
       onRefresh();
     } else {
       showToast(result.reason ?? "投票失败", "error");
@@ -83,7 +89,7 @@ export function VoteView({ onRefresh }: VoteViewProps) {
       <section className="section hint-box">
         <p>
           💡 复活赛第一季截止 <strong>2026年7月31日</strong>
-          ，票数最高的亡灵将优先获得完整对话能力。第二季、名人堂……敬请期待。
+          ，票数最高的亡灵将优先获得完整对话能力。用户上传的英雄需管理员审核后参与投票。
         </p>
       </section>
     </>

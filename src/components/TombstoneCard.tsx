@@ -1,7 +1,7 @@
-import type { Character } from "~/data/characters";
+import type { PublicHero } from "~/server/db/types";
 
 interface TombstoneCardProps {
-  char: Character & { voteCount?: number; pct?: number };
+  char: PublicHero & { voteCount?: number; pct?: number };
   extra?: React.ReactNode;
 }
 

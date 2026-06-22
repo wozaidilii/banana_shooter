@@ -21,7 +21,9 @@ export function Toast({ message, type = "info", onClose }: ToastProps) {
   }, [onClose]);
 
   return (
-    <div className={`toast toast-${type}${show ? " show" : ""}`}>{message}</div>
+    <div className={`toast toast-${type}${show ? " show" : ""}`} role="status" aria-live="polite">
+      {message}
+    </div>
   );
 }
 

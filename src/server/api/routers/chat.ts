@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { buildSystemMessage, getSystemPrompt } from "~/characters/prompts";
+import { getHeroDialogue, getHeroPersona } from "~/server/db/heroes";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
 /** 聊天 tRPC 路由 — DeepSeek 服务端代理 */
@@ -13,10 +14,21 @@ export const chatRouter = createTRPCRouter({
   /** 获取角色的 system prompt（供调试） */
   getSystemPrompt: publicProcedure
     .input(z.object({ characterId: z.string() }))
-    .query(({ input }) => {
-      const prompt = getSystemPrompt(input.characterId as Parameters<typeof getSystemPrompt>[0]);
-      const message = buildSystemMessage(input.characterId as Parameters<typeof buildSystemMessage>[0]);
-      return { prompt, systemMessage: message };
+    .query(async ({ input }) => {
+      const dbPersona = await getHeroPersona(input.characterId);
+      if (dbPersona) {
+        return {
+          prompt: dbPersona,
+          systemMessage: { role: "system" as const, content: dbPersona },
+        };
+      }
+      try {
+        const prompt = getSystemPrompt(input.characterId as Parameters<typeof getSystemPrompt>[0]);
+        const message = buildSystemMessage(input.characterId as Parameters<typeof buildSystemMessage>[0]);
+        return { prompt, systemMessage: message };
+      } catch {
+        return { prompt: null, systemMessage: null };
+      }
     }),
 
   /** 服务端 LLM 代理（需配置 LLM_API_ENDPOINT 环境变量） */
@@ -43,9 +55,20 @@ export const chatRouter = createTRPCRouter({
         return { ok: false as const, reply: null, reason: "LLM API 未配置" };
       }
 
-      const systemMessage = buildSystemMessage(
-        input.characterId as Parameters<typeof buildSystemMessage>[0],
-      );
+      const dbDialogue = await getHeroDialogue(input.characterId);
+      let systemMessage: { role: "system"; content: string };
+
+      if (dbDialogue?.persona) {
+        systemMessage = { role: "system", content: dbDialogue.persona };
+      } else {
+        try {
+          systemMessage = buildSystemMessage(
+            input.characterId as Parameters<typeof buildSystemMessage>[0],
+          );
+        } catch {
+          return { ok: false as const, reply: null, reason: "角色不存在" };
+        }
+      }
 
       try {
         const res = await fetch(endpoint, {

@@ -4,6 +4,7 @@ out/
 .DS_Store
 npm-debug.log*
 *.tsbuildinfo
+data/store/heroes.json
 
 # 本地密钥
 .env

@@ -1,9 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { generateReply, getGreeting, type LLMFetcher } from "~/characters/dialogue";
+import {
+  generateReplyWithDialogue,
+  getGreetingFromConfig,
+  type LLMFetcher,
+} from "~/characters/dialogue";
 import type { CharacterId } from "~/data/characters";
-import { CHARACTERS } from "~/data/characters";
+import { useHeroes } from "~/context/HeroContext";
 import { showToast } from "~/components/Toast";
 import {
   createSession,
@@ -24,8 +28,9 @@ interface ChatViewProps {
 }
 
 export function ChatView({ initialCharacterId }: ChatViewProps) {
+  const { heroes } = useHeroes();
   const [activeCharacterId, setActiveCharacterId] = useState<CharacterId>(
-    initialCharacterId ?? CHARACTERS[0]!.id,
+    initialCharacterId ?? heroes[0]?.id ?? "laoda",
   );
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -36,8 +41,12 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
 
   const { data: llmStatus } = api.chat.isConfigured.useQuery();
   const { mutateAsync: generateLLMReply } = api.chat.generateReply.useMutation();
+  const { data: dialogueConfig } = api.hero.getDialogue.useQuery(
+    { id: activeCharacterId },
+    { enabled: Boolean(activeCharacterId) },
+  );
 
-  const char = CHARACTERS.find((c) => c.id === activeCharacterId);
+  const char = heroes.find((c) => c.id === activeCharacterId);
 
   const refreshSessions = useCallback((characterId: CharacterId, sessionId?: string) => {
     migrateLegacyChatHistory();
@@ -127,10 +136,12 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
     setMessages((prev) => [...prev, { role: "user", content: text, ts: Date.now() }]);
     setTyping(true);
 
-    const result = await generateReply(activeCharacterId, text, messages, {
-      llmFetcher,
-      sessionId: session.id,
-    });
+    const result = dialogueConfig
+      ? await generateReplyWithDialogue(activeCharacterId, text, dialogueConfig, messages, {
+          llmFetcher,
+          sessionId: session.id,
+        })
+      : { ok: false as const, reply: "角色对话配置加载中，请稍后再试" };
 
     setTyping(false);
 
@@ -147,7 +158,15 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
     }
   };
 
-  const greeting = getGreeting(activeCharacterId);
+  const greeting =
+    dialogueConfig?.greeting ??
+    char?.dialogue?.greeting ??
+    getGreetingFromConfig({
+      greeting: `你好，我是${char?.name ?? "冥界居民"}。`,
+      persona: "",
+      keywords: {},
+      fallbacks: [],
+    });
 
   return (
     <>
@@ -162,7 +181,7 @@ export function ChatView({ initialCharacterId }: ChatViewProps) {
       </section>
 
       <div className="chat-char-tabs">
-        {CHARACTERS.map((c) => (
+        {heroes.map((c) => (
           <button
             key={c.id}
             type="button"

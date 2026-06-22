@@ -1,5 +1,6 @@
 import type { CharacterId } from "~/data/characters";
 import type { CharacterDialogueMap } from "./types";
+import { DIALOGUE_SETTINGS } from "./settings";
 
 /** 各赛博人物的关键词回复与兜底话术 */
 export const CHARACTER_DIALOGUES: CharacterDialogueMap = {
@@ -135,5 +136,7 @@ export function getDialogueConfig(characterId: CharacterId) {
 }
 
 export function getGreeting(characterId: CharacterId): string {
-  return CHARACTER_DIALOGUES[characterId].greeting;
+  const config = CHARACTER_DIALOGUES[characterId as keyof typeof CHARACTER_DIALOGUES];
+  if (!config) return DIALOGUE_SETTINGS.defaultFallback;
+  return config.greeting;
 }

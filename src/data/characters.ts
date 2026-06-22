@@ -1,11 +1,5 @@
-/** 赛博人物 ID */
-export type CharacterId =
-  | "laoda"
-  | "zhangxuefeng"
-  | "dingzhen"
-  | "mabaoguo"
-  | "caixukun"
-  | "fengge";
+/** 赛博人物 ID — 支持官方与用户上传 */
+export type CharacterId = string;
 
 export type CharacterStatus = "candidate" | "resurrected";
 

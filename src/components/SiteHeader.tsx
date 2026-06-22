@@ -12,22 +12,25 @@ const NAV_ITEMS: { view: ViewName; label: string }[] = [
   { view: "home", label: "首页" },
   { view: "vote", label: "复活赛" },
   { view: "chat", label: "对话" },
+  { view: "submit", label: "造英雄" },
   { view: "skins", label: "皮肤" },
   { view: "profile", label: "称号" },
+  { view: "admin", label: "管理" },
 ];
 
 export function SiteHeader({ currentView, onNavigate }: SiteHeaderProps) {
   return (
     <header className="site-header">
-      <div className="logo" onClick={() => onNavigate("home")} role="button" tabIndex={0}>
+      <button className="logo" type="button" onClick={() => onNavigate("home")}>
         <span className="logo-icon">⚰️</span>
         <span className="logo-text">赛博墓碑</span>
-      </div>
+      </button>
       <nav className="nav" aria-label="主导航">
         {NAV_ITEMS.map(({ view, label }) => (
           <button
             key={view}
             className={`nav-btn${currentView === view ? " active" : ""}`}
+            data-view={view}
             onClick={() => onNavigate(view)}
           >
             {label}

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { CharacterId } from "~/data/characters";
+import { useHeroes } from "~/context/HeroContext";
 import {
   formatCountdown,
   getCountdown,
   getLeaderboard,
   getTotalVotes,
+  initVoteStorage,
 } from "~/lib/vote";
 import { TombstoneCard } from "~/components/TombstoneCard";
 
@@ -15,15 +17,25 @@ interface HomeViewProps {
 }
 
 export function HomeView({ onNavigate }: HomeViewProps) {
+  const { heroes, isLoading } = useHeroes();
   const [cd, setCd] = useState(getCountdown());
-  const board = getLeaderboard();
+
+  useEffect(() => {
+    if (heroes.length) initVoteStorage(heroes);
+  }, [heroes]);
+
+  const board = getLeaderboard(heroes);
   const top3 = board.slice(0, 3);
-  const total = getTotalVotes();
+  const total = getTotalVotes(heroes);
 
   useEffect(() => {
     const timer = setInterval(() => setCd(getCountdown()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  if (isLoading && !heroes.length) {
+    return <p className="empty">加载冥界居民中…</p>;
+  }
 
   return (
     <>

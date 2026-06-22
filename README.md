@@ -53,36 +53,27 @@ npm start
 
 ## LLM API 接入
 
-### 批量生成详尽角色提示词（Python）
-
-`scripts/python/fetch_prompt.py` 调用 **DeepSeek V4 Flash**，为角色生成详尽 system prompt。
-
-```powershell
-copy scripts\python\.env.example scripts\python\.env
-# 编辑 .env 填入 DEEPSEEK_API_KEY
-
-python scripts/python/fetch_prompt.py --defaults
-python scripts/python/fetch_prompt.py --input scripts/python/characters.txt
-```
-
-每行 txt 支持：`角色名` / `角色名|身份|描述` / `id|角色名|身份|描述`  
-输出 `{id}.prompt.txt` 备份 + 已有角色同步更新 `{id}.ts`。
-
 ### 方式一：客户端直连
 
 在浏览器控制台或页面脚本中配置：
 
 ```typescript
 window.CYBER_TOMB_API = {
-  endpoint: "https://api.deepseek.com/chat/completions",
+  endpoint: "https://your-api.com/chat",
   key: "your-api-key",
-  model: "deepseek-v4-flash",
 };
 ```
 
 ### 方式二：tRPC 服务端代理（推荐）
 
-配置根目录 `.env` 中的 `LLM_API_KEY` 与 `LLM_MODEL=deepseek-v4-flash`，客户端通过 tRPC `chat.generateReply` 调用。
+在 `.env` 中配置：
+
+```env
+LLM_API_ENDPOINT=https://your-api.com/chat
+LLM_API_KEY=your-api-key
+```
+
+客户端可通过 tRPC `chat.generateReply` 调用，避免暴露 API Key。
 
 ### 修改系统提示词
 

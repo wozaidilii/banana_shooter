@@ -7,6 +7,8 @@ import { useState } from "react";
 import superjson from "superjson";
 import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "~/trpc/query-client";
+import { getAdminToken } from "~/lib/admin-auth";
+import { getAuthUser } from "~/lib/auth";
 
 export const api = createTRPCReact<AppRouter>();
 
@@ -43,6 +45,16 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
           headers: () => {
             const headers = new Headers();
             headers.set("x-trpc-source", "nextjs-react");
+
+            const adminToken = getAdminToken();
+            if (adminToken) headers.set("x-admin-token", adminToken);
+
+            const user = getAuthUser();
+            if (user?.openId) {
+              headers.set("x-user-openid", user.openId);
+              headers.set("x-user-nickname", user.nickname);
+            }
+
             return headers;
           },
         }),

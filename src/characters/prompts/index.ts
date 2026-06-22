@@ -19,12 +19,13 @@ export const SYSTEM_PROMPTS: SystemPromptMap = {
 
 /** 获取角色的 system prompt 文本（供 LLM 调用） */
 export function getSystemPrompt(characterId: CharacterId): string {
-  return SYSTEM_PROMPTS[characterId].content;
+  const prompt = SYSTEM_PROMPTS[characterId as keyof typeof SYSTEM_PROMPTS];
+  return prompt?.content ?? `你是赛博墓碑中的角色 ${characterId}。`;
 }
 
 /** 获取完整 SystemPrompt 对象 */
-export function getSystemPromptMeta(characterId: CharacterId): SystemPrompt {
-  return SYSTEM_PROMPTS[characterId];
+export function getSystemPromptMeta(characterId: CharacterId): SystemPrompt | null {
+  return SYSTEM_PROMPTS[characterId as keyof typeof SYSTEM_PROMPTS] ?? null;
 }
 
 /** 全局对话风格约束 — 每次请求都会附加，防止模型刻意堆哏 */
@@ -40,7 +41,10 @@ export function buildSystemMessage(characterId: CharacterId): {
   role: "system";
   content: string;
 } {
-  const prompt = SYSTEM_PROMPTS[characterId];
+  const prompt = SYSTEM_PROMPTS[characterId as keyof typeof SYSTEM_PROMPTS];
+  if (!prompt) {
+    return { role: "system", content: `你是赛博墓碑中的角色 ${characterId}。` };
+  }
   const parts = [prompt.content];
   const constraints = [
     ...(prompt.constraints ?? []),

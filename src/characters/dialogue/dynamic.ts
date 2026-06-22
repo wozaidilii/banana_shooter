@@ -1,20 +1,17 @@
-import type { CharacterId } from "~/data/characters";
+import type { HeroDialogue } from "~/server/db/types";
 import { appendSessionMessage } from "~/lib/chat-sessions";
 import { incrementChatCount } from "~/lib/storage";
-import { CHARACTER_DIALOGUES } from "./keywords";
 import { DIALOGUE_SETTINGS } from "./settings";
 import type { ChatMessage, GenerateReplyResult } from "./types";
+import { CHARACTER_DIALOGUES, getGreeting as getStaticGreeting } from "./keywords";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function matchKeyword(characterId: CharacterId, message: string): string | null {
-  const config = CHARACTER_DIALOGUES[characterId as keyof typeof CHARACTER_DIALOGUES];
-  if (!config) return null;
+function matchKeywordFromConfig(dialogue: HeroDialogue, message: string): string | null {
   const lower = message.toLowerCase();
-
-  for (const [key, replies] of Object.entries(config.keywords)) {
+  for (const [key, replies] of Object.entries(dialogue.keywords ?? {})) {
     if (message.includes(key) || lower.includes(key.toLowerCase())) {
       if (replies.length > 0) {
         return replies[Math.floor(Math.random() * replies.length)]!;
@@ -24,39 +21,50 @@ function matchKeyword(characterId: CharacterId, message: string): string | null 
   return null;
 }
 
-function fallbackReply(characterId: CharacterId): string {
-  const config = CHARACTER_DIALOGUES[characterId as keyof typeof CHARACTER_DIALOGUES];
-  const pool = config?.fallbacks ?? [];
+function fallbackFromConfig(dialogue: HeroDialogue): string {
+  const pool = dialogue.fallbacks ?? [];
   if (!pool.length) return DIALOGUE_SETTINGS.defaultFallback;
   return pool[Math.floor(Math.random() * pool.length)]!;
 }
 
-export type LLMFetcher = (
-  characterId: CharacterId,
-  message: string,
-  history: ChatMessage[],
-) => Promise<string | null>;
-
-/** 模板引擎回复（关键词 / 兜底），仅在 LLM 不可用时使用 */
-export async function generateTemplateReply(
-  characterId: CharacterId,
+/** 使用动态对话配置生成模板回复 */
+export async function generateTemplateReplyWithConfig(
+  dialogue: HeroDialogue,
   userMessage: string,
 ): Promise<{ reply: string; source: "keyword" | "fallback" }> {
   const msg = userMessage.trim();
   const { typingDelayMin, typingDelayMax } = DIALOGUE_SETTINGS;
   await delay(typingDelayMin + Math.random() * (typingDelayMax - typingDelayMin));
 
-  const keywordMatch = matchKeyword(characterId, msg);
+  const keywordMatch = matchKeywordFromConfig(dialogue, msg);
   if (keywordMatch) {
     return { reply: keywordMatch, source: "keyword" };
   }
-  return { reply: fallbackReply(characterId), source: "fallback" };
+  return { reply: fallbackFromConfig(dialogue), source: "fallback" };
 }
 
-/** 生成角色回复 — 优先 LLM，失败时回退模板引擎 */
-export async function generateReply(
-  characterId: CharacterId,
+export function getGreetingFromConfig(dialogue: HeroDialogue): string {
+  return dialogue.greeting?.trim() || DIALOGUE_SETTINGS.defaultFallback;
+}
+
+/** 静态英雄 greeting（兼容旧逻辑） */
+export function getGreeting(characterId: string): string {
+  const config = CHARACTER_DIALOGUES[characterId as keyof typeof CHARACTER_DIALOGUES];
+  if (config) return getStaticGreeting(characterId as Parameters<typeof getStaticGreeting>[0]);
+  return DIALOGUE_SETTINGS.defaultFallback;
+}
+
+export type LLMFetcher = (
+  characterId: string,
+  message: string,
+  history: ChatMessage[],
+) => Promise<string | null>;
+
+/** 生成角色回复 — 支持动态 dialogue 配置 */
+export async function generateReplyWithDialogue(
+  characterId: string,
   userMessage: string,
+  dialogue: HeroDialogue,
   history: ChatMessage[] = [],
   options?: { llmFetcher?: LLMFetcher; sessionId?: string },
 ): Promise<GenerateReplyResult> {
@@ -76,7 +84,7 @@ export async function generateReply(
     reply = llmReply;
     source = "llm";
   } else {
-    const template = await generateTemplateReply(characterId, msg);
+    const template = await generateTemplateReplyWithConfig(dialogue, msg);
     reply = template.reply;
     source = template.source;
   }
@@ -89,5 +97,3 @@ export async function generateReply(
 
   return { ok: true, reply, characterId, source };
 }
-
-export { getGreeting } from "./keywords";
