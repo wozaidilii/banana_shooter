@@ -238,14 +238,19 @@ export function AdminView() {
               {pendingSkins.map((skin) => {
                 const char = CHARACTERS.find((c) => c.id === skin.characterId);
                 return (
-                  <div key={skin.id} className="admin-card">
-                    <span className="admin-card-emoji">{skin.emoji || "🎨"}</span>
+                  <div key={skin.id} className="admin-card admin-card-skin">
+                    {skin.imageUrl ? (
+                      <div className="admin-card-image-wrap">
+                        <img src={skin.imageUrl} alt={skin.name} className="admin-card-image" />
+                      </div>
+                    ) : (
+                      <span className="admin-card-emoji">{skin.emoji || "🎨"}</span>
+                    )}
                     <div className="admin-card-body">
                       <h4>
                         {skin.name}{" "}
                         <small>提交者：{skin.author || "匿名"}</small>
                       </h4>
-                      <p>{skin.desc || "暂无描述"}</p>
                       {char && (
                         <p className="admin-persona-preview">
                           绑定角色：{char.emoji} {char.name}

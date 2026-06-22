@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CHARACTERS } from "~/data/characters";
 import { showToast } from "~/components/Toast";
+import { SkinUploadFields } from "~/components/SkinUploadFields";
 import {
   createSkin,
   getAllSkins,
@@ -14,26 +15,11 @@ import {
 
 export function SkinsView() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [characterId, setCharacterId] = useState("");
   const skins = getAllSkins();
   const charOptions = getCharacterOptions();
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const result = createSkin({
-      name: String(fd.get("name") ?? ""),
-      characterId: String(fd.get("characterId") ?? ""),
-      desc: String(fd.get("desc") ?? ""),
-      emoji: String(fd.get("emoji") ?? "🎨"),
-    });
-    if (result.ok) {
-      showToast("皮肤已提交，等待管理员审核通过后展示", "success");
-      setRefreshKey((k) => k + 1);
-      e.currentTarget.reset();
-    } else {
-      showToast(result.reason ?? "上传失败", "error");
-    }
-  };
+  void refreshKey;
 
   const handleLike = (skinId: string) => {
     const result = like(skinId);
@@ -45,13 +31,13 @@ export function SkinsView() {
     }
   };
 
-  void refreshKey;
+  const selectedChar = charOptions.find((c) => c.id === characterId);
 
   return (
     <>
       <section className="page-header">
         <h2>🎨 梗图皮肤工坊</h2>
-        <p>上传你的史诗级抽象皮肤，出圈赢专属称号</p>
+        <p>上传肖像梗图，审核通过后加入角色皮肤轮换</p>
       </section>
 
       <section className="section">
@@ -69,34 +55,40 @@ export function SkinsView() {
 
       <section className="section create-skin">
         <h3 className="section-subtitle">创作你的皮肤</h3>
-        <form className="skin-form" onSubmit={handleSubmit}>
-          <div className="form-row">
-            <label>皮肤名称</label>
-            <input name="name" placeholder="例：冰红茶战神·究极体" maxLength={30} required />
-          </div>
-          <div className="form-row">
-            <label>绑定角色</label>
-            <select name="characterId" defaultValue="">
-              <option value="">通用皮肤</option>
-              {charOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.emoji} {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-row">
-            <label>皮肤描述</label>
-            <textarea name="desc" placeholder="描述你的抽象创意……" maxLength={200} rows={3} />
-          </div>
-          <div className="form-row">
-            <label>表情/图标</label>
-            <input name="emoji" placeholder="🎨" maxLength={4} defaultValue="🎨" />
-          </div>
-          <button type="submit" className="btn btn-primary">
-            上传皮肤
-          </button>
-        </form>
+        <div className="form-row">
+          <label htmlFor="skin-character">绑定角色</label>
+          <select
+            id="skin-character"
+            value={characterId}
+            onChange={(e) => setCharacterId(e.target.value)}
+            required
+          >
+            <option value="">请选择角色</option>
+            {charOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.emoji} {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {characterId ? (
+          <SkinUploadFields
+            characterName={selectedChar?.name}
+            submitLabel="上传皮肤"
+            onSubmit={(data) =>
+              createSkin({
+                name: data.name,
+                characterId,
+                imageUrl: data.imageUrl,
+                imageWidth: data.imageWidth,
+                imageHeight: data.imageHeight,
+              })
+            }
+            onSuccess={() => setRefreshKey((k) => k + 1)}
+          />
+        ) : (
+          <p className="empty">请先选择要绑定的角色</p>
+        )}
       </section>
 
       <section className="section">
@@ -118,9 +110,14 @@ function SkinCard({ skin, onLike }: { skin: DisplaySkin; onLike: (id: string) =>
   const char = CHARACTERS.find((c) => c.id === skin.characterId);
   return (
     <div className="skin-card" data-skin={skin.id}>
-      <div className="skin-emoji">{skin.emoji || "🎨"}</div>
+      {skin.imageUrl ? (
+        <div className="skin-card-image-wrap">
+          <img src={skin.imageUrl} alt={skin.name} className="skin-card-image" />
+        </div>
+      ) : (
+        <div className="skin-emoji">{skin.emoji || "🎨"}</div>
+      )}
       <h4>{skin.name}</h4>
-      <p>{skin.desc || ""}</p>
       <div className="skin-meta">
         <span>{skin.official ? "官方" : skin.author || "匿名"}</span>
         {char && (
@@ -129,11 +126,7 @@ function SkinCard({ skin, onLike }: { skin: DisplaySkin; onLike: (id: string) =>
           </span>
         )}
       </div>
-      <button
-        className="btn-like"
-        disabled={skin.official}
-        onClick={() => onLike(skin.id)}
-      >
+      <button className="btn-like" disabled={skin.official} onClick={() => onLike(skin.id)}>
         ❤️ {Number(skin.likes) || 0}
       </button>
     </div>

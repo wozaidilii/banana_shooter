@@ -23,6 +23,9 @@ export interface DisplaySkin {
   likes: number;
   official?: boolean;
   reviewStatus?: UserSkin["reviewStatus"];
+  imageUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 }
 
 function guessCharacterForTemplate(templateId: string): string {
@@ -47,6 +50,9 @@ function toDisplaySkin(skin: UserSkin): DisplaySkin {
     author: skin.author,
     likes: skin.likes,
     reviewStatus: skin.reviewStatus,
+    imageUrl: skin.imageUrl,
+    imageWidth: skin.imageWidth,
+    imageHeight: skin.imageHeight,
   };
 }
 
@@ -72,9 +78,10 @@ export function getPendingSkinSubmissions(): DisplaySkin[] {
 
 export function createSkin(data: {
   name?: string;
-  desc?: string;
   characterId?: string;
-  emoji?: string;
+  imageUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 }): { ok: boolean; reason?: string } {
   const result = addSkin(data);
   if (!result.ok) return result;

@@ -64,6 +64,9 @@ export interface UserSkin {
   likes: number;
   adopted: boolean;
   createdAt: number;
+  imageUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   reviewStatus?: SkinReviewStatus;
   reviewNote?: string;
   reviewedAt?: number;
@@ -198,24 +201,28 @@ export function reviewSkin(
 
 export function addSkin(skin: {
   name?: string;
-  desc?: string;
   characterId?: string;
-  templateId?: string;
-  emoji?: string;
+  imageUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 }): { ok: boolean; reason?: string; skin?: UserSkin } {
-  if (!skin.name) return { ok: false, reason: "皮肤名称不能为空" };
+  if (!skin.name?.trim()) return { ok: false, reason: "皮肤名称不能为空" };
+  if (!skin.imageUrl) return { ok: false, reason: "请上传皮肤图片" };
   const skins = getSkins();
   const entry: UserSkin = {
     id: `skin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    name: String(skin.name).slice(0, 30),
-    desc: String(skin.desc ?? "").slice(0, 200),
+    name: String(skin.name).trim().slice(0, 30),
+    desc: "",
     characterId: skin.characterId ?? "",
-    templateId: skin.templateId ?? "",
-    emoji: skin.emoji ?? "🎨",
+    templateId: "",
+    emoji: "",
     author: getProfile().nickname,
     likes: 0,
     adopted: false,
     createdAt: Date.now(),
+    imageUrl: skin.imageUrl,
+    imageWidth: skin.imageWidth,
+    imageHeight: skin.imageHeight,
     reviewStatus: "pending",
   };
   skins.unshift(entry);

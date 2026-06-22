@@ -1,5 +1,7 @@
 import type { StaticImageData } from "next/image";
 import type { CharacterId } from "~/data/characters";
+import { getSkins } from "~/lib/storage";
+import type { CharacterSkinEntry, PortraitImage } from "./types";
 
 import laodaClassic from "./laoda/kobe_classic.png";
 import laodaBaoan from "./laoda/kobe_保安.png";
@@ -14,42 +16,71 @@ import laodaFuwyuan from "./laoda/kobe_服务员.png";
 import laodaGongren from "./laoda/kobe_工人.png";
 import laodaTumu from "./laoda/kobe_土木.png";
 
-export interface CharacterSkinEntry {
-  id: string;
-  label: string;
-  image: StaticImageData;
-  classic?: boolean;
+export type { CharacterSkinEntry, PortraitImage } from "./types";
+
+function toPortraitImage(image: StaticImageData): PortraitImage {
+  return {
+    src: image.src,
+    width: image.width,
+    height: image.height,
+  };
+}
+
+function staticSkin(
+  id: string,
+  label: string,
+  image: StaticImageData,
+  classic?: boolean,
+): CharacterSkinEntry {
+  return { id, label, image: toPortraitImage(image), classic };
 }
 
 /** 暂无专属皮肤的角色统一占位 */
-export const PLACEHOLDER_SKIN: CharacterSkinEntry = {
-  id: "classic",
-  label: "经典",
-  image: laodaClassic,
-  classic: true,
-};
+export const PLACEHOLDER_SKIN: CharacterSkinEntry = staticSkin("classic", "经典", laodaClassic, true);
 
 const LAODA_SKINS: CharacterSkinEntry[] = [
-  { id: "classic", label: "经典", image: laodaClassic, classic: true },
-  { id: "baoan", label: "保安", image: laodaBaoan },
-  { id: "waimai", label: "外卖", image: laodaWaimai },
-  { id: "kuaidi", label: "快递", image: laodaKuaidi },
-  { id: "meituan", label: "美团", image: laodaMeituan },
-  { id: "jingcha", label: "警察", image: laodaJingcha },
-  { id: "hushi", label: "护士", image: laodaHushi },
-  { id: "mixue", label: "蜜雪冰城", image: laodaMixue },
-  { id: "daxuesheng", label: "大学生", image: laodaDaxuesheng },
-  { id: "fuwuyuan", label: "服务员", image: laodaFuwyuan },
-  { id: "gongren", label: "工人", image: laodaGongren },
-  { id: "tumu", label: "土木", image: laodaTumu },
+  staticSkin("classic", "经典", laodaClassic, true),
+  staticSkin("baoan", "保安", laodaBaoan),
+  staticSkin("waimai", "外卖", laodaWaimai),
+  staticSkin("kuaidi", "快递", laodaKuaidi),
+  staticSkin("meituan", "美团", laodaMeituan),
+  staticSkin("jingcha", "警察", laodaJingcha),
+  staticSkin("hushi", "护士", laodaHushi),
+  staticSkin("mixue", "蜜雪冰城", laodaMixue),
+  staticSkin("daxuesheng", "大学生", laodaDaxuesheng),
+  staticSkin("fuwuyuan", "服务员", laodaFuwyuan),
+  staticSkin("gongren", "工人", laodaGongren),
+  staticSkin("tumu", "土木", laodaTumu),
 ];
 
 const CHARACTER_SKIN_MAP: Partial<Record<CharacterId, CharacterSkinEntry[]>> = {
   laoda: LAODA_SKINS,
 };
 
+function getApprovedUserSkins(characterId: string): CharacterSkinEntry[] {
+  if (typeof window === "undefined") return [];
+  return getSkins()
+    .filter(
+      (skin) =>
+        skin.reviewStatus === "approved" &&
+        skin.characterId === characterId &&
+        Boolean(skin.imageUrl),
+    )
+    .map((skin) => ({
+      id: skin.id,
+      label: skin.name,
+      image: {
+        src: skin.imageUrl!,
+        width: skin.imageWidth,
+        height: skin.imageHeight,
+      },
+    }));
+}
+
 export function getCharacterSkins(characterId: string): CharacterSkinEntry[] {
-  return CHARACTER_SKIN_MAP[characterId] ?? [PLACEHOLDER_SKIN];
+  const base = CHARACTER_SKIN_MAP[characterId] ?? [PLACEHOLDER_SKIN];
+  const userSkins = getApprovedUserSkins(characterId);
+  return userSkins.length ? [...base, ...userSkins] : base;
 }
 
 export function getClassicSkinIndex(skins: CharacterSkinEntry[]): number {
